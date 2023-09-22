@@ -1,15 +1,6 @@
 import socket
 import argparse
 
-# Datos de las ciudades (puedes personalizar esta lista)
-ciudades = {
-    "madrid": "Madrid, España",
-    "paris": "París, Francia",
-    "berlin": "Berlín, Alemania",
-    "roma": "Roma, Italia",
-    "londres": "Londres, Reino Unido",
-}
-
 def obtener_nombre_ciudad(ciudad):
     return ciudades.get(ciudad.lower(), "Ciudad no encontrada")
 
