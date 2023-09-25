@@ -3,11 +3,8 @@ import threading
 import os
 
 nom_archivo = "registro.txt"
-
-if not os.path.isfile(nom_archivo):
-    with open(nom_archivo, "w"):
-        pass
-
+ID = 1
+NEXT_ID = 1
 
 HEADER = 64
 PORT = 5051
@@ -17,11 +14,14 @@ FORMAT = 'utf-8'
 FIN = "FIN"
 MAX_CONEXIONES = 2
 
+
+
 def handle_client(conn, addr):
     print(f"[NUEVA CONEXION] {addr} connected.")
 
     connected = True
     while connected:
+        ID= 1
         msg_length = conn.recv(HEADER).decode(FORMAT)
         if msg_length:
             msg_length = int(msg_length)
@@ -29,11 +29,12 @@ def handle_client(conn, addr):
             if msg == FIN:
                 connected = False
             print(f" He recibido del cliente [{addr}] el mensaje: {msg}")
-            conn.send(f"HOLA CLIENTE: He recibido tu mensaje: {msg} ".encode(FORMAT))
+            conn.send(f"Se te ha asignado el id: {ID}, y el alias {msg} ".encode(FORMAT))
+            ID = ID+NEXT_ID
+            save_info(ID, msg)
     print("ADIOS. TE ESPERO EN OTRA OCASION")
     conn.close()
     
-        
 
 def start():
     server.listen()
@@ -53,7 +54,17 @@ def start():
             conn.send("OOppsss... DEMASIADAS CONEXIONES. Tendrás que esperar a que alguien se vaya".encode(FORMAT))
             conn.close()
             CONEX_ACTUALES = threading.active_count()-1
-        
+
+def save_info(ID, alias):
+    # Se comprueba que el archivo está creado y si no lo esta, lo crea
+# Se comprueba que el archivo está creado y si no lo esta, lo crea
+    try:
+        with open(nom_archivo, 'a') as registro:
+            registro.write(f"ID: {ID}, Alias: {alias}\n")
+        print("Información guardada con éxito.")
+    except Exception as e:
+        print(f"Error al guardar la información: {str(e)}")
+
 
 ######################### MAIN ##########################
 
