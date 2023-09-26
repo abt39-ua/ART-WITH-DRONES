@@ -3,8 +3,12 @@ import argparse
 
 # Función que obtiene el nombre de la ciudad a partir de su nombre en minúscula.
 # Si la ciudad no se encuentra en el diccionario, devuelve "Ciudad no encontrada".
-def obtener_nombre_ciudad(ciudad):
-    return datos_ciudades.get(ciudad.lower(), "Ciudad no encontrada")
+def obtener_nombre_ciudad(ciudad, datos_ciudades):
+     ciudad = ciudad.lower()
+    if ciudad in datos_ciudades:
+        return ciudad, datos_ciudades[ciudad]
+    else:
+        return "Ciudad no encontrada", None
 
 def main():
     try:
@@ -57,9 +61,12 @@ def main():
                     # Definimos ciudades válidas basadas en las claves del diccionario
                     ciudades_validas = datos_ciudades.keys()
                     # Verificamos si la ciudad solicitada es válida
-                    ciudad = obtener_nombre_ciudad(datos)
-                    if ciudad != "Ciudad no encontrada" and ciudad in ciudades_validas:
-                            respuesta = f"Nombre de la ciudad: {ciudad}" # Aquí habría que hacer todo lo del tiempo si es valido o no.
+                    ciudad, valor = obtener_nombre_ciudad(datos, datos_ciudades)
+                    if ciudad != "Ciudad no encontrada" and ciudad in ciudades_validas and valor is not None:
+                        if valor > 0:
+                            respuesta = f"En la ciudad: {ciudad}, se puede actuar, ya que hacen {valor} grados." 
+                        else:
+                            respuesta = f"En la ciudad: {ciudad}, NO se puede actuar, ya que hacen {valor} grados." 
                     else:
                         respuesta = "Ciudad no válida"
                 else:
