@@ -1,60 +1,43 @@
-import socket 
-import threading
-
+import socket
+import sys
 
 HEADER = 64
 PORT = 5050
-SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 FIN = "FIN"
-MAX_CONEXIONES = 2
 
-def handle_client(conn, addr):
-    print(f"[NUEVA CONEXION] {addr} connected.")
-
-    connected = True
-    while connected:
-        msg_length = conn.recv(HEADER).decode(FORMAT)
-        if msg_length:
-            msg_length = int(msg_length)
-            msg = conn.recv(msg_length).decode(FORMAT)
-            if msg == FIN:
-                connected = False
-            print(f" He recibido del cliente [{addr}] el mensaje: {msg}")
-            conn.send(f"HOLA CLIENTE: He recibido tu mensaje: {msg} ".encode(FORMAT))
-    print("ADIOS. TE ESPERO EN OTRA OCASION")
-    conn.close()
+def send(msg):
+    message = msg.encode(FORMAT)
+    msg_length = len(message)
+    send_length = str(msg_length).encode(FORMAT)
+    send_length += b' ' * (HEADER - len(send_length))
+    client.send(send_length)
+    client.send(message)
     
-        
-
-def start():
-    server.listen()
-    print(f"[LISTENING] Servidor a la escucha en {SERVER}")
-    CONEX_ACTIVAS = threading.active_count()-1
-    print(CONEX_ACTIVAS)
-    while True:
-        conn, addr = server.accept()
-        CONEX_ACTIVAS = threading.active_count()
-        if (CONEX_ACTIVAS <= MAX_CONEXIONES): 
-            thread = threading.Thread(target=handle_client, args=(conn, addr))
-            thread.start()
-            print(f"[CONEXIONES ACTIVAS] {CONEX_ACTIVAS}")
-            print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO", MAX_CONEXIONES-CONEX_ACTIVAS)
-        else:
-            print("OOppsss... DEMASIADAS CONEXIONES. ESPERANDO A QUE ALGUIEN SE VAYA")
-            conn.send("OOppsss... DEMASIADAS CONEXIONES. Tendrás que esperar a que alguien se vaya".encode(FORMAT))
-            conn.close()
-            CONEX_ACTUALES = threading.active_count()-1
-        
-
-######################### MAIN ##########################
+########## MAIN ##########
 
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(ADDR)
+print("****** WELCOME TO OUR BRILLIANT SD UA CURSO 2020/2021 SOCKET CLIENT ****")
 
-print("[STARTING] Servidor inicializándose...")
+if  (len(sys.argv) == 4):
+    SERVER = sys.argv[1]
+    PORT = int(sys.argv[2])
+    ADDR = (SERVER, PORT)
+    
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(ADDR)
+    print (f"Establecida conexión en [{ADDR}]")
 
-start()
+    msg=sys.argv[3]
+    while msg != FIN :
+        print("Envio al servidor: ", msg)
+        send(msg)
+        print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
+        msg=input()
 
+    print ("SE ACABO LO QUE SE DABA")
+    print("Envio al servidor: ", FIN)
+    send(FIN)
+    client.close()
+else:
+    print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Cadena a invertir>")
