@@ -1,5 +1,5 @@
 madrid:20
 paris:15
-berlin:0
-roma:25
+berlin:-12
+roma:0
 londres:22
