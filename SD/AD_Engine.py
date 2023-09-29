@@ -36,3 +36,10 @@ if  (len(sys.argv) == 4):
     client.close()
 else:
     print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Ciudad>")
+
+# Crear una matriz 2D de 20x20 posiciones para representar el espacio aéreo
+espacio_aereo = [[0 for _ in range(20)] for _ in range(20)]
+
+# Imprimir la matriz para visualizar el espacio aéreo
+for fila in espacio_aereo:
+    print(fila)
