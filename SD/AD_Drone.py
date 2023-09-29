@@ -1,6 +1,9 @@
 import socket
 import sys
 
+ID=0
+alias = ""
+
 HEADER = 64
 PORT = 5050
 FORMAT = 'utf-8'
@@ -16,9 +19,6 @@ def send(msg):
     
 ########## MAIN ##########
 
-
-print("****** WELCOME TO OUR BRILLIANT SD UA CURSO 2020/2021 SOCKET CLIENT ****")
-
 if  (len(sys.argv) == 4):
     SERVER = sys.argv[1]
     PORT = int(sys.argv[2])
@@ -30,9 +30,14 @@ if  (len(sys.argv) == 4):
 
     msg=sys.argv[3]
     while msg != FIN :
-        print("Envio al servidor: ", msg)
+        print("Realizando solicitud al servidor")
         send(msg)
         print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
+        recibido = client.recv(2048).decode(FORMAT)
+        print(f"{recibido}")
+        ID = recibido[24]
+        alias = msg
+        print(f"{ID}, {alias}")
         msg=input()
 
     print ("SE ACABO LO QUE SE DABA")
@@ -40,4 +45,4 @@ if  (len(sys.argv) == 4):
     send(FIN)
     client.close()
 else:
-    print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Texto Bienvenida>")
+    print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Alias deseado>")
