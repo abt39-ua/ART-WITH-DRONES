@@ -2,6 +2,7 @@ import socket
 import threading
 import os
 import signal
+import sys
 
 nom_archivo = "registro.txt"
 ID = 1
@@ -28,7 +29,7 @@ def signal_handler(sig, frame):
     except Exception as e:
         print(f"No se pudo eliminar el archivo {nom_archivo}: {str(e)}")
     server.close()  # Cierra el socket del servidor
-    os._exit(0)  # Sale del programa
+    sys.exit(0)  # Sale del programa
 
 # Asigna el manejador de señales
 signal.signal(signal.SIGINT, signal_handler)
