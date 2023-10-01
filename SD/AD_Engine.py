@@ -1,59 +1,54 @@
-import socket 
-import threading
+#-Conexión con weather
+#-conexión con el fichero de dibujo y obtención num de drones
+#-comprobar num drones en registro.txt
+#-enviar cada pos requerida a cada dron
+#-expresion del mapa a cada mov de dron
 
+
+import socket
+import sys
 
 HEADER = 64
 PORT = 5050
-SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 FIN = "FIN"
-MAX_CONEXIONES = 2
 
-def handle_client(conn, addr):
-    print(f"[NUEVA CONEXION] {addr} connected.")
-
-    connected = True
-    while connected:
-        msg_length = conn.recv(HEADER).decode(FORMAT)
-        if msg_length:
-            msg_length = int(msg_length)
-            msg = conn.recv(msg_length).decode(FORMAT)
-            if msg == FIN:
-                connected = False
-            print(f" He recibido del cliente [{addr}] el mensaje: {msg}")
-            conn.send(f"HOLA CLIENTE: He recibido tu mensaje: {msg} ".encode(FORMAT))
-    print("ADIOS. TE ESPERO EN OTRA OCASION")
-    conn.close()
+def send(msg client):
+    message = msg.encode(FORMAT)
+    msg_length = len(message)
+    send_length = str(msg_length).encode(FORMAT)
+    send_length += b' ' * (HEADER - len(send_length))
+    client.send(send_length)
+    client.send(message)
     
+########## MAIN ##########
+
+def getWeather()
+    if  (len(sys.argv) == 4):
+        SERVER = sys.argv[1]
+        PORT = int(sys.argv[2])
+        ADDR = (SERVER, PORT)
         
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(ADDR)
+        print (f"Establecida conexión en [{ADDR}]")
 
-def start():
-    server.listen()
-    print(f"[LISTENING] Servidor a la escucha en {SERVER}")
-    CONEX_ACTIVAS = threading.active_count()-1
-    print(CONEX_ACTIVAS)
-    while True:
-        conn, addr = server.accept()
-        CONEX_ACTIVAS = threading.active_count()
-        if (CONEX_ACTIVAS <= MAX_CONEXIONES): 
-            thread = threading.Thread(target=handle_client, args=(conn, addr))
-            thread.start()
-            print(f"[CONEXIONES ACTIVAS] {CONEX_ACTIVAS}")
-            print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO", MAX_CONEXIONES-CONEX_ACTIVAS)
-        else:
-            print("OOppsss... DEMASIADAS CONEXIONES. ESPERANDO A QUE ALGUIEN SE VAYA")
-            conn.send("OOppsss... DEMASIADAS CONEXIONES. Tendrás que esperar a que alguien se vaya".encode(FORMAT))
-            conn.close()
-            CONEX_ACTUALES = threading.active_count()-1
-        
+        msg=sys.argv[3]
+        while msg != FIN :
+            print("Envio al servidor: ", msg)
+            send(msg, client)
+            print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
+            msg=input()
+        print("Envio al servidor: ", FIN)
+        send(FIN)
+        client.close()
+    else:
+        print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Ciudad>")
 
-######################### MAIN ##########################
+    # Crear una matriz 2D de 20x20 posiciones para representar el espacio aéreo
+    espacio_aereo = [[0 for _ in range(20)] for _ in range(20)]
 
-
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(ADDR)
-
-print("[STARTING] Servidor inicializándose...")
-
-start()
+    # Imprimir la matriz para visualizar el espacio aéreo
+    for fila in espacio_aereo:
+        print(fila)
+getWeather()
