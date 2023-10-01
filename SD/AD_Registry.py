@@ -29,7 +29,7 @@ def handle_client(conn, addr):
             if msg == FIN:
                 connected = False
             print(f" He recibido del cliente [{addr}] el mensaje: {msg}")
-            conn.send(f"Se te ha asignado el id: {ID}, y el alias {msg} ".encode(FORMAT))
+            conn.send(f"{ID}".encode(FORMAT))
             ID = ID+NEXT_ID
             save_info(ID, msg)
     print("ADIOS. TE ESPERO EN OTRA OCASION")

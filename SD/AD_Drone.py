@@ -33,11 +33,8 @@ if  (len(sys.argv) == 4):
         print("Realizando solicitud al servidor")
         send(msg)
         print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
-        recibido = client.recv(2048).decode(FORMAT)
-        print(f"{recibido}")
-        ID = recibido[24]
-        alias = msg
-        print(f"{ID}, {alias}")
+        ID = client.recv(2048).decode(FORMAT)
+        print(f"{ID}")
         msg=input()
 
     print ("SE ACABO LO QUE SE DABA")
