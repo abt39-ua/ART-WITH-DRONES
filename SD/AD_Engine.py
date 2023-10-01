@@ -13,7 +13,7 @@ PORT = 5050
 FORMAT = 'utf-8'
 FIN = "FIN"
 
-def send(msg client):
+def send(msg, client):
     message = msg.encode(FORMAT)
     msg_length = len(message)
     send_length = str(msg_length).encode(FORMAT)
@@ -21,9 +21,8 @@ def send(msg client):
     client.send(send_length)
     client.send(message)
     
-########## MAIN ##########
 
-def getWeather()
+def getWeather():
     if  (len(sys.argv) == 4):
         SERVER = sys.argv[1]
         PORT = int(sys.argv[2])
@@ -51,4 +50,14 @@ def getWeather()
     # Imprimir la matriz para visualizar el espacio aéreo
     for fila in espacio_aereo:
         print(fila)
+
+def getFigura():
+    print("hola")
+
+
+########## MAIN ##########
+
+print("Consiguiendo información del tiempo...")
 getWeather()
+print("Consiguiendo figura...")
+getFigura()
