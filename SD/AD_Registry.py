@@ -5,7 +5,7 @@ import os
 nom_archivo = "registro.txt"
 
 HEADER = 64
-PORT = 5050
+PORT = 5051
 SERVER = socket.gethostbyname(socket.gethostname())
 ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
@@ -25,7 +25,7 @@ def handle_client(conn, addr, ID):
             if msg == FIN:
                 connected = False
             else:
-                print(f" He recibido del cliente [{addr}] el mensaje: {msg}")
+                print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
                 conn.send(f"{ID}".encode(FORMAT))
                 save_info(ID, msg)
     print("ADIOS. TE ESPERO EN OTRA OCASION")
