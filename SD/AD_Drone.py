@@ -32,11 +32,13 @@ if  (len(sys.argv) == 4):
     while msg != FIN :
         print("Realizando solicitud al servidor")
         send(msg)
-        print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
         ID = client.recv(2048).decode(FORMAT)
-        print(f"{ID}")
+        #print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
+        print(f"Recibo del Servidor: {ID}")
+        #ID = client.recv(2048).decode(FORMAT)
         msg=input()
 
+    print(f"{ID}")
     print ("SE ACABO LO QUE SE DABA")
     print("Envio al servidor: ", FIN)
     send(FIN)
