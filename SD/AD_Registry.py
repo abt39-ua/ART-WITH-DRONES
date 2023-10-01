@@ -28,8 +28,8 @@ def signal_handler(sig, frame):
             print(f"El archivo {nom_archivo} no existe.")
     except Exception as e:
         print(f"No se pudo eliminar el archivo {nom_archivo}: {str(e)}")
-    server.close()  # Cierra el socket del servidor
     sys.exit(0)  # Sale del programa
+    server.close()  # Cierra el socket del servidor
 
 # Asigna el manejador de señales
 signal.signal(signal.SIGINT, signal_handler)

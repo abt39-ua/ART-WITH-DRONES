@@ -47,7 +47,7 @@ def start():
             print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
             recibido = client.recv(2048).decode(FORMAT)
             print(f"{recibido}")
-            ID = recibido[24]
+            ID = recibido[]
             alias = msg
             print(f"{ID}, {alias}")
             msg=input()
