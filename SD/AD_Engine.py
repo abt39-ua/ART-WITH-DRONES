@@ -1,3 +1,10 @@
+#-Conexión con weather
+#-conexión con el fichero de dibujo y obtención num de drones
+#-comprobar num drones en registro.txt
+#-enviar cada pos requerida a cada dron
+#-expresion del mapa a cada mov de dron
+
+
 import socket 
 import threading
 
