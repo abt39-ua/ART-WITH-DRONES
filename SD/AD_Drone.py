@@ -3,6 +3,7 @@ import sys
 import signal
 import os
 import sys
+from kafka import kafkaConsumer
 
 ID=0
 alias = ""
@@ -11,6 +12,7 @@ HEADER = 64
 PORT = 5050
 FORMAT = 'utf-8'
 FIN = "FIN"
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def signal_handler(sig, frame):
     # Tareas de limpieza aquí, si es necesario
@@ -35,8 +37,6 @@ def start():
         SERVER = sys.argv[1]
         PORT = int(sys.argv[2])
         ADDR = (SERVER, PORT)
-        
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(ADDR)
         print (f"Establecida conexión en [{ADDR}]")
 
@@ -47,7 +47,6 @@ def start():
             print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
             recibido = client.recv(2048).decode(FORMAT)
             print(f"{recibido}")
-            ID = recibido[]
             alias = msg
             print(f"{ID}, {alias}")
             msg=input()
