@@ -10,13 +10,13 @@ import sys
 import threading
 import time
 import os
+from kafka import KafkaProducer
 
 HEADER = 64
-PORT = 5050
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 FORMAT = 'utf-8'
 FIN = "FIN"
 SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
 MAX_CONEXIONES = 10
 
 temp =0
@@ -30,13 +30,13 @@ def send(msg, client):
     client.send(send_length)
     client.send(message)
     
-def getWeather(msg):
+def getWeather(ciudad, SERVER, PORT):
     while True:
         msg = ciudad
         with output_lock:
             if  (len(sys.argv) == 3):
-                SERVER = sys.argv[1]
-                PORT = int(sys.argv[2])
+                #SERVER = sys.argv[1]
+                #PORT = int(sys.argv[2])
                 ADDR = (SERVER, PORT)
                 
                 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -64,7 +64,7 @@ def getWeather(msg):
 
         time.sleep(10)
 
-
+""""
 def getFigura(figura):
     with open(figura, 'r') as file:
         for linea in file:
@@ -83,20 +83,93 @@ def getCoord(id):
     else:
         print("No se han encontrado el ID en la figura.")
 
+"""
+
+#########  DRONE  ###########
+
+
+def publish(producer_instance, topic_name, key, value):
+    try:
+        key_bytes = bytes(key, encoding='utf-8')
+        value_bytes = bytes(value, encoding='utf-8')
+        producer_instance.send(topic_name, key=key_bytes, value=value_bytes)
+        producer_instance.flush()
+        print(f"Publish Succesful ({key}, {value}) -> {topic_name}")
+    except Exception as ex:
+        print('Exception in publishing message')
+        print(str(ex))
+
+def get_kafka_producer(servers=['localhost:9092']):
+    _producer = None
+    try:
+        _producer = KafkaProducer(bootstrap_servers=servers, api_version=(0, 10))
+    except Exception as ex:
+        print('Exception while connecting Kafka')
+        print(str(ex))
+    finally:
+        return _producer
+
 
 ########## MAIN ##########
 
-msg=input("¿En que ciudad se va a actuar?")
-ciudad = msg
-print("Consiguiendo información del tiempo...")
-#getWeather()
-thread =threading.Thread(target = getWeather, args = (msg,))
-thread.daemon = True
-thread.start()
-while True:
-    awa = input("bu")
-    print("Consiguiendo figura...")
-    datos = {}
-    getFigura("Figura.txt")
-    time.sleep(60)
-    #connectDron()
+def main(argv = sys.argv):
+    PORT = argv[1]
+    MAX_Drones = argv[2]
+    Server_Kafka = argv[3]
+    Port_Kafka = argv[4]
+    Server_W = argv[5]
+    Port_W = argv[6]
+
+    print("Obteniendo Clima")
+
+
+
+
+    print("")
+
+    try:
+        topic = argv[0]
+        key = argv[1]
+        message = argv[2]
+    except Exception as ex:
+        print("Failed to set topic, key, or message")
+
+    producer = get_kafka_producer()
+    publish(producer, topic, key, message)
+    
+    
+
+
+    tam = len(argv)
+
+    try:
+        if tam == 7:
+            ADDR = (Server_W, Port_W)
+
+            client.connet(ADDR)
+
+
+            tasks = [SocketCliente(), Consumer(), Consumer()]
+
+            for t in tasks:
+                t.start()
+        else:
+            print("Error en los argumentos:<Puerto de escucha> <N Max de Drones> <IP:Kafka> <Port:Kafka> <IP:Weather> <Port:Weather>")
+
+    except:
+        pass
+
+    msg=input("¿En que ciudad se va a actuar? ")
+    ciudad = msg
+    print("Consiguiendo información del tiempo...")
+    #getWeather()
+    thread =threading.Thread(target = getWeather, args = (ciudad, ))
+    thread.daemon = True
+    thread.start()
+    while True:
+
+        print("Consiguiendo figura...")
+        datos = {}
+        getFigura("Figura.txt")
+        time.sleep(60)
+        #connectDron()
