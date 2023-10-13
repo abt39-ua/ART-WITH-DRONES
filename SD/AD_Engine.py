@@ -67,9 +67,10 @@ def getWeather(ciudad, SERVER, PORT):
 
         time.sleep(10)
 
-""""
-def getFigura(figura):
-    with open(figura, 'r') as file:
+
+def getFigura():
+    datos = {}
+    with open("Figura.txt", 'r') as file:
         for linea in file:
             partes = linea.strip().split()
             if len(partes) == 3:
@@ -79,6 +80,7 @@ def getFigura(figura):
                 datos[id] = (x, y)
     return datos
 
+""""
 def getCoord(id):
     if id in datos:
         coord = datos[id]
@@ -124,9 +126,11 @@ class Producer(threading.Thread):
 
     def run(self):
         while True:
-            producer1 = KafkaProducer(bootstrap_servers='localhost:9092')
-            data1 = pickle.dumps("Coord destino")
-            producer1.send('topic_b', data1)
+            info = getFigura()
+            for id, (x,y) in info.items():
+                producer1 = KafkaProducer(bootstrap_servers='localhost:9092')
+                data1 = pickle.dumps("{id} {x} {y}")
+                producer1.send('topic_b', data1)
 
             producer = KafkaProducer(bootstrap_servers='localhost:9092')
             data = pickle.dumps("Mapa")
@@ -141,16 +145,17 @@ class Producer(threading.Thread):
 ########## MAIN ##########
 
 def main(argv = sys.argv):
+    """"
     PORT = argv[1]
     MAX_Drones = argv[2]
     Server_Kafka = argv[3]
     Port_Kafka = argv[4]
     Server_W = argv[5]
     Port_W = argv[6]
+    """
 
     print("Obteniendo Clima")
-
-    getWeather()   
+  
     
     print("Conecatnado con Dron")
 
@@ -160,7 +165,7 @@ def main(argv = sys.argv):
         if tam == 7:
             ADDR = (Server_W, Port_W)
 
-        tasks = [Consumer1(), Producer()]
+        tasks = [getWeather(), Consumer1(), Producer()]
 
         for t in tasks:
             t.start()
@@ -183,6 +188,9 @@ def main(argv = sys.argv):
 
         print("Consiguiendo figura...")
         datos = {}
-        getFigura("Figura.txt")
+        #getFigura("Figura.txt")
         time.sleep(60)
         #connectDron()
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

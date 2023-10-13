@@ -13,6 +13,8 @@ HEADER = 64
 PORT = 5050
 FORMAT = 'utf-8'
 FIN = "FIN"
+x = 0
+y = 0
 
 
 #######  REGISTRY   ######
