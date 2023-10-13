@@ -11,6 +11,9 @@ import threading
 import time
 import os
 from kafka import KafkaProducer
+from kafka import KafkaConsumer
+import pickle
+
 
 HEADER = 64
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -88,26 +91,51 @@ def getCoord(id):
 #########  DRONE  ###########
 
 
-def publish(producer_instance, topic_name, key, value):
-    try:
-        key_bytes = bytes(key, encoding='utf-8')
-        value_bytes = bytes(value, encoding='utf-8')
-        producer_instance.send(topic_name, key=key_bytes, value=value_bytes)
-        producer_instance.flush()
-        print(f"Publish Succesful ({key}, {value}) -> {topic_name}")
-    except Exception as ex:
-        print('Exception in publishing message')
-        print(str(ex))
+class Consumer1(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
 
-def get_kafka_producer(servers=['localhost:9092']):
-    _producer = None
-    try:
-        _producer = KafkaProducer(bootstrap_servers=servers, api_version=(0, 10))
-    except Exception as ex:
-        print('Exception while connecting Kafka')
-        print(str(ex))
-    finally:
-        return _producer
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        consumer2 = KafkaConsumer(bootstrap_servers='localhost:9092',
+                                            auto_offset_reset='latest',
+                                            consumer_timeout_ms=1000)
+
+        consumer2.subscribe(['topic_a'])
+
+        while not self.stop_event.is_set():
+            for message in consumer2:
+                print(pickle.loads(message.value))
+
+                if self.stop_event.is_set():
+                    break
+                #print("Leyendo mensajes de entrypark")
+
+class Producer(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        while True:
+            producer1 = KafkaProducer(bootstrap_servers='localhost:9092')
+            data1 = pickle.dumps("Coord destino")
+            producer1.send('topic_b', data1)
+
+            producer = KafkaProducer(bootstrap_servers='localhost:9092')
+            data = pickle.dumps("Mapa")
+            producer.send('topic_b', data)
+
+            print("Engine enviando mapa")
+            
+            producer.close()
+            time.sleep(3)
 
 
 ########## MAIN ##########
@@ -122,23 +150,9 @@ def main(argv = sys.argv):
 
     print("Obteniendo Clima")
 
-
-
-
-    print("")
-
-    try:
-        topic = argv[0]
-        key = argv[1]
-        message = argv[2]
-    except Exception as ex:
-        print("Failed to set topic, key, or message")
-
-    producer = get_kafka_producer()
-    publish(producer, topic, key, message)
+    getWeather()   
     
-    
-
+    print("Conecatnado con Dron")
 
     tam = len(argv)
 
@@ -146,15 +160,14 @@ def main(argv = sys.argv):
         if tam == 7:
             ADDR = (Server_W, Port_W)
 
-            client.connet(ADDR)
+        tasks = [Consumer1(), Producer()]
 
+        for t in tasks:
+            t.start()
 
-            tasks = [SocketCliente(), Consumer(), Consumer()]
+        while True:
 
-            for t in tasks:
-                t.start()
-        else:
-            print("Error en los argumentos:<Puerto de escucha> <N Max de Drones> <IP:Kafka> <Port:Kafka> <IP:Weather> <Port:Weather>")
+            time.sleep(1)
 
     except:
         pass

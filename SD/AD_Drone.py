@@ -1,6 +1,10 @@
 import socket
 import sys
 from kafka import KafkaConsumer
+from kafka import KafkaProducer
+import pickle
+import time
+import threading
 
 ID=0
 alias = ""
@@ -53,26 +57,49 @@ def registry():
 
 #######   ENGINE   #######
 
-def subscribe(consumer_instance):
-    try:
-        for event in consumer_instance:
-            key = event.key.decode("utf-8")
-            value = event.value.decode("utf-8")
-            print(f"Message Received: ({key}, {value})")
-        consumer_instance.close()
-    except Exception as ex:
-        print('Exception in subscribing')
-        print(str(ex))
+class Producer(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
 
-def get_kafka_consumer(topic_name, servers=['localhost:9092']):
-    _consumer = None
-    try:
-        _consumer = KafkaConsumer(topic_name, auto_offset_reset='latest', bootstrap_servers=servers, api_version=(0, 10), consumer_timeout_ms=10000)
-    except Exception as ex:
-        print('Exception while connecting Kafka')
-        print(str(ex))
-    finally:
-        return _consumer
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        while True:
+            producer = KafkaProducer(bootstrap_servers="localhost:9092")
+            data = pickle.dumps("Posición a la que me muevo")
+            producer.send('topic_a', data)
+
+            print("Me he movido")
+
+            producer.close()
+            time.sleep(4)
+
+class Consumer(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        grupo = '1'
+        consumer2 = KafkaConsumer(bootstrap_servers='localhost:9092',
+                                            auto_offset_reset='latest',
+                                            consumer_timeout_ms=1000, group_id = grupo)
+
+        consumer2.subscribe(['topic_b'])
+
+        while not self.stop_event.is_set():
+            for message in consumer2:
+                print(pickle.loads(message.value))
+
+                if self.stop_event.is_set():
+                    break
+                #print("Leyendo mensajes de entrypark")
+
 
 
 ########## MAIN ##########
@@ -90,14 +117,15 @@ def main(args):
 
     if orden == "1":
         registry()
-    if orden == "2":
-        try:
-            topic = args[0]
-        except Exception as ex:
-            print("Failed to set topic")
+        if orden == "2":
+            tasks = [Consumer(), Producer()]
 
-        consumer = get_kafka_consumer(topic)
-        subscribe(consumer)
+        for t in tasks:
+            t.start()
+
+        while True:
+
+            time.sleep(1)
 
     if orden == "3":
         sys.exit()
