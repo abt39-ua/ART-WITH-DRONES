@@ -44,8 +44,6 @@ def handle_client(conn, addr):
 
                 # Verificamos si la ciudad solicitada es válida
                 ciudad, valor = obtener_nombre_ciudad(msg)
-                # Definimos ciudades válidas basadas en las claves del diccionario
-                ciudades_validas = DATOS_CIUDADES.keys()
                 if ciudad != "Ciudad no encontrada" and valor is not None:
                     if valor > 0:
                         conn.send(f"En la ciudad {ciudad}, se puede actuar, ya que hacen {valor} grados.".encode(FORMAT)) 

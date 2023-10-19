@@ -16,10 +16,7 @@ FORMAT = 'utf-8'
 FIN = "FIN"
 MAX_CONEXIONES = 2
 
-def signal_handler(sig, frame):
-    # Tareas de limpieza aquí, si es necesario
-    print("Cerrando el servidor...")
-    # Borrar el archivo registro.txt al cerrar el servidor
+def borrar_archivo():
     try:
         if os.path.exists(nom_archivo):
             os.remove(nom_archivo)
@@ -28,6 +25,12 @@ def signal_handler(sig, frame):
             print(f"El archivo {nom_archivo} no existe.")
     except Exception as e:
         print(f"No se pudo eliminar el archivo {nom_archivo}: {str(e)}")
+
+def signal_handler(sig, frame):
+    # Tareas de limpieza aquí, si es necesario
+    print("Cerrando el servidor...")
+    # Borrar el archivo registro.txt al cerrar el servidor
+    borrar_archivo()
     sys.exit(0)  # Sale del programa
     server.close()  # Cierra el socket del servidor
 
