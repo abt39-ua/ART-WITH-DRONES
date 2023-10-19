@@ -113,7 +113,6 @@ class Consumer1(threading.Thread):
 
                 if self.stop_event.is_set():
                     break
-                #print("Leyendo mensajes de entrypark")
 
 class Producer(threading.Thread):
     def __init__(self):
@@ -134,10 +133,10 @@ class Producer(threading.Thread):
             data = pickle.dumps("Mapa")
             producer.send('topic_b', data)
 
-            print("Engine enviando mapa")
+            print("Engine enviando coord destino y mapa")
             
             producer.close()
-            time.sleep(3)
+            time.sleep(4)
 
 
 ########## MAIN ##########
@@ -192,6 +191,7 @@ def main(argv = sys.argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+    pass
 
 
     #  python3 AD_Engine.py 5050 20 127.0.0.1 5050 127.0.0.1 5050

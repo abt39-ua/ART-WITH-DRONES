@@ -15,8 +15,9 @@ PORT = 5050
 FORMAT = 'utf-8'
 FIN = "FIN"
 X = 0
+Xi = 0
 Y = 0
-
+Yi = 0
 
 #######  REGISTRY   ######
 
@@ -57,13 +58,37 @@ def registry():
     #else:
     #    print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Alias deseado>")
 
-######
+######  DRONE   ######
 
 def setCoords(x, y):
     global X, Y
     X = x
     Y = y
+    mov(X, Y, Xi, Yi)
     return X, Y
+
+def mov(x, y, xi, yi):
+    global Xi, Yi
+    if x == xi and y == yi:
+        print("He llegado")
+        return FIN
+    else:
+        while xi != x or yi != y:
+            dx = x-xi
+            dy = y-yi
+
+            if dx > 0:
+                xi+=1
+            elif dx < 0:
+                xi-=1
+
+            if dy > 0:
+                yi += 1
+            elif dx < 0:
+                yi -= 1
+            Xi = xi
+            Yi = yi
+            return Xi, Yi
     
 
 #######   ENGINE   #######
@@ -79,11 +104,17 @@ class Producer(threading.Thread):
     def run(self):
         while True:
             producer = KafkaProducer(bootstrap_servers="localhost:9092")
-            info = {"Posición a la que me muevo: (": {X}, ", ": {Y}, ")": {}}
+
+            if X == Xi and Y == Yi:
+                info = {"El Drone ": {ID}, " ha llegado a su destino: (": {X}, ", ": {Y}, ")": {}}
+                Producer().stop()
+
+            else:
+                info = {"Posición a la que se mueve el drone ": {id}, ": (": {Xi}, ", ": {Yi}, ")": {}}
+                print(f"Me he movido a ({Xi}, {Yi})")
+
             data = pickle.dumps(info)
             producer.send('topic_a', data)
-
-            print("Me he movido")
 
             producer.close()
             time.sleep(4)
@@ -113,7 +144,6 @@ class Consumer(threading.Thread):
                 print(data)
 
                 if isinstance(data, dict):
-                    print(f'{ID}')
                     for id, (x, y) in data.items():
                         if ID == id:
                             print(f'ID: {id}, Coordenadas:({x}, {y})')
@@ -123,13 +153,16 @@ class Consumer(threading.Thread):
 
                 if self.stop_event.is_set():
                     break
-                #print("Leyendo mensajes de entrypark")
 
 
 
 ########## MAIN ##########
 
-def main(args):
+def resval():
+    Xi = 0
+    Yi = 0
+
+def main():
     print("¿Qué deseas hacer?")
     print("1. Registrarse")
     print("2. Empezar representación")
@@ -156,4 +189,4 @@ def main(args):
         sys.exit()
 
 if __name__ == "__main__":
-  main(sys.argv[1:])
+    main()
