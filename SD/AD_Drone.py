@@ -1,3 +1,4 @@
+import json
 import socket
 import sys
 from kafka import KafkaConsumer
@@ -13,8 +14,8 @@ HEADER = 64
 PORT = 5050
 FORMAT = 'utf-8'
 FIN = "FIN"
-x = 0
-y = 0
+X = 0
+Y = 0
 
 
 #######  REGISTRY   ######
@@ -56,6 +57,14 @@ def registry():
     #else:
     #    print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Alias deseado>")
 
+######
+
+def setCoords(x, y):
+    global X, Y
+    X = x
+    Y = y
+    return X, Y
+    
 
 #######   ENGINE   #######
 
@@ -70,13 +79,15 @@ class Producer(threading.Thread):
     def run(self):
         while True:
             producer = KafkaProducer(bootstrap_servers="localhost:9092")
-            data = pickle.dumps("Posición a la que me muevo")
+            info = {"Posición a la que me muevo: (": {X}, ", ": {Y}, ")": {}}
+            data = pickle.dumps(info)
             producer.send('topic_a', data)
 
             print("Me he movido")
 
             producer.close()
             time.sleep(4)
+
 
 class Consumer(threading.Thread):
     def __init__(self):
@@ -87,6 +98,8 @@ class Consumer(threading.Thread):
         self.stop_event.set()
 
     def run(self):
+        coord = {}
+        ID = '1'
         grupo = '1'
         consumer2 = KafkaConsumer(bootstrap_servers='localhost:9092',
                                             auto_offset_reset='latest',
@@ -96,7 +109,17 @@ class Consumer(threading.Thread):
 
         while not self.stop_event.is_set():
             for message in consumer2:
-                print(pickle.loads(message.value))
+                data = pickle.loads(message.value)
+                print(data)
+
+                if isinstance(data, dict):
+                    print(f'{ID}')
+                    for id, (x, y) in data.items():
+                        if ID == id:
+                            print(f'ID: {id}, Coordenadas:({x}, {y})')
+                            setCoords(x,y)
+                else:    
+                    print(pickle.loads(message.value))
 
                 if self.stop_event.is_set():
                     break
@@ -119,14 +142,14 @@ def main(args):
 
     if orden == "1":
         registry()
-        if orden == "2":
-            tasks = [Consumer(), Producer()]
+
+    if orden == "2":
+        tasks = [Consumer(), Producer()]
 
         for t in tasks:
             t.start()
 
         while True:
-
             time.sleep(1)
 
     if orden == "3":

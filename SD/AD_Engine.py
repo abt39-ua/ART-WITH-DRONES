@@ -16,7 +16,6 @@ import pickle
 
 
 HEADER = 64
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 FORMAT = 'utf-8'
 FIN = "FIN"
 SERVER = socket.gethostbyname(socket.gethostname())
@@ -74,21 +73,21 @@ def getFigura():
         for linea in file:
             partes = linea.strip().split()
             if len(partes) == 3:
-                id = partes[0]
-                x = float(partes[1])
-                y = float(partes[2])
-                datos[id] = (x, y)
+                ID = partes[0]
+                x = int(partes[1])
+                y = int(partes[2])
+                datos[ID] = (x, y)
     return datos
 
-""""
+
 def getCoord(id):
+    datos = getFigura()
     if id in datos:
         coord = datos[id]
         print(f"X: {coord[0]}, Y: {coord[1]}")
     else:
         print("No se han encontrado el ID en la figura.")
 
-"""
 
 #########  DRONE  ###########
 
@@ -124,14 +123,13 @@ class Producer(threading.Thread):
     def stop(self):
         self.stop_event.set()
 
-    def run(self):
+    def run(self):    
         while True:
             info = getFigura()
-            for id, (x,y) in info.items():
-                producer1 = KafkaProducer(bootstrap_servers='localhost:9092')
-                data1 = pickle.dumps("{id} {x} {y}")
-                producer1.send('topic_b', data1)
-
+            producer1 = KafkaProducer(bootstrap_servers='localhost:9092')
+            data1 = pickle.dumps(info)
+            producer1.send('topic_b', data1)
+            
             producer = KafkaProducer(bootstrap_servers='localhost:9092')
             data = pickle.dumps("Mapa")
             producer.send('topic_b', data)
@@ -145,27 +143,42 @@ class Producer(threading.Thread):
 ########## MAIN ##########
 
 def main(argv = sys.argv):
-    """"
-    PORT = argv[1]
-    MAX_Drones = argv[2]
-    Server_Kafka = argv[3]
-    Port_Kafka = argv[4]
-    Server_W = argv[5]
-    Port_W = argv[6]
-    """
+    PORT = argv[0]
+    MAX_Drones = argv[1]
+    Server_Kafka = argv[2]
+    Port_Kafka = argv[3]
+    Server_W = argv[4]
+    Port_W = argv[5]
 
-    print("Obteniendo Clima")
-  
-    
-    print("Conecatnado con Dron")
 
     tam = len(argv)
 
-    try:
-        if tam == 7:
-            ADDR = (Server_W, Port_W)
+    datos = getFigura()
 
-        tasks = [getWeather(), Consumer1(), Producer()]
+
+    try:
+        if tam == 5:
+            ###  WEATHER  ###
+            ADDR = (Server_W, Port_W)
+            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client.connect(ADDR)
+            print (f"Establecida conexión en [{ADDR}]")
+
+            msg=sys.argv[3]
+            contador = 0
+            while contador < 10:
+                print("Envio al servidor: ", msg)
+                send(msg)
+                print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
+                
+                # Pausar el programa durante el tiempo de consulta antes de enviar la próxima consulta
+                time.sleep(10)
+                contador += 1
+            client.close()
+
+        ###  KAFKA  ###
+
+        tasks = [Consumer1(), Producer()]
 
         for t in tasks:
             t.start()
@@ -177,20 +190,8 @@ def main(argv = sys.argv):
     except:
         pass
 
-    msg=input("¿En que ciudad se va a actuar? ")
-    ciudad = msg
-    print("Consiguiendo información del tiempo...")
-    #getWeather()
-    thread =threading.Thread(target = getWeather, args = (ciudad, ))
-    thread.daemon = True
-    thread.start()
-    while True:
-
-        print("Consiguiendo figura...")
-        datos = {}
-        #getFigura("Figura.txt")
-        time.sleep(60)
-        #connectDron()
-
 if __name__ == "__main__":
     main(sys.argv[1:])
+
+
+    #  python3 AD_Engine.py 5050 20 127.0.0.1 5050 127.0.0.1 5050
