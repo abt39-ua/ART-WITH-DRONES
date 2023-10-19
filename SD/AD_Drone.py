@@ -112,6 +112,7 @@ class Producer(threading.Thread):
 
             if X == Xi and Y == Yi:
                 info = {"El Drone ": {ID}, " ha llegado a su destino: (": {X}, ", ": {Y}, ")": {}}
+                print("He llegado a mi destino")
                 limpiar()
                 self.stop()
 
@@ -135,13 +136,10 @@ class Consumer(threading.Thread):
         self.stop_event.set()
 
     def run(self):
-        global ID
         coord = {}
-        ID = '1'
-        grupo = '1'
         consumer2 = KafkaConsumer(bootstrap_servers='localhost:9092',
                                             auto_offset_reset='latest',
-                                            consumer_timeout_ms=1000, group_id = grupo)
+                                            consumer_timeout_ms=1000)
 
         consumer2.subscribe(['topic_b'])
 
@@ -168,7 +166,9 @@ def resval():
     Xi = 0
     Yi = 0
 
-def main():
+def main(argv = sys.argv):
+    global ID
+    ID = argv[0]
     print("¿Qué deseas hacer?")
     print("1. Registrarse")
     print("2. Empezar representación")
@@ -196,4 +196,4 @@ def main():
         sys.exit()
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
