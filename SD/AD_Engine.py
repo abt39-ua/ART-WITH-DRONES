@@ -3,6 +3,11 @@ import sys
 import time
 import signal
 import random
+from kafka import KafkaProducer
+from kafka import KafkaConsumer
+import time
+import pickle
+import threading
 
 HEADER = 64
 PORT = 5050
@@ -10,6 +15,52 @@ FORMAT = 'utf-8'
 FIN = "FIN"
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ciudades = {}
+
+class Consumer1(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        consumer2 = KafkaConsumer(bootstrap_servers='localhost:9092',
+                                            auto_offset_reset='latest',
+                                            consumer_timeout_ms=1000)
+
+        consumer2.subscribe(['topic_a'])
+
+        while not self.stop_event.is_set():
+            for message in consumer2:
+                print(pickle.loads(message.value))
+
+                if self.stop_event.is_set():
+                    break
+                #print("Leyendo mensajes de entrypark")
+
+class Producer(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        while True:
+            producer1 = KafkaProducer(bootstrap_servers='localhost:9092')
+            data1 = pickle.dumps("Coord destino")
+            producer1.send('topic_b', data1)
+
+            producer = KafkaProducer(bootstrap_servers='localhost:9092')
+            data = pickle.dumps("Mapa")
+            producer.send('topic_b', data)
+
+            print("Engine enviando mapa")
+            
+            producer.close()
+            time.sleep(3)
 
 def obtener_nombre_ciudades():
     try:
@@ -61,6 +112,8 @@ def procesar_archivo_registro():
 
     
 ########## MAIN ##########8
+
+
 def start():
     
     if  (len(sys.argv) == 4):
@@ -92,7 +145,54 @@ def start():
     else:
         print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Ciudad> <Tiempo consulta>")
 
+def main(argv = sys.argv):
+    """"
+    PORT = argv[1]
+    MAX_Drones = argv[2]
+    Server_Kafka = argv[3]
+    Port_Kafka = argv[4]
+    Server_W = argv[5]
+    Port_W = argv[6]
+    """
 
+    print("Obteniendo Clima")
+  
+    
+    print("Conecatnado con Dron")
+
+    tam = len(argv)
+
+    try:
+        if tam == 7:
+            ADDR = (Server_W, Port_W)
+
+        tasks = [getWeather(), Consumer1(), Producer()]
+
+        for t in tasks:
+            t.start()
+
+        while True:
+
+            time.sleep(1)
+
+    except:
+        pass
+
+    msg=input("¿En que ciudad se va a actuar? ")
+    ciudad = msg
+    print("Consiguiendo información del tiempo...")
+    #getWeather()
+    thread =threading.Thread(target = getWeather, args = (ciudad, ))
+    thread.daemon = True
+    thread.start()
+    while True:
+
+        print("Consiguiendo figura...")
+        datos = {}
+        #getFigura("Figura.txt")
+        time.sleep(60)
+        #connectDron()
+        
 start()
 # Crear una matriz 2D de 20x20 posiciones para representar el espacio aéreo
 # espacio_aereo = [[0 for _ in range(20)] for _ in range(20)]

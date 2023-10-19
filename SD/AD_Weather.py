@@ -10,8 +10,6 @@ FORMAT = 'utf-8'
 FIN = "FIN"
 MAX_CONEXIONES = 2
 
-
-
 def obtener_nombre_ciudad(ciudad):
     try:
         # Abrimos el archivo en modo lectura

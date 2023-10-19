@@ -1,9 +1,11 @@
 import socket
 import sys
+from kafka import KafkaConsumer
+from kafka import KafkaProducer
+import pickle
+import time
+import threading
 import signal
-import os
-import sys
-from kafka import kafkaConsumer
 
 ID=0
 alias = ""
@@ -14,6 +16,9 @@ FORMAT = 'utf-8'
 FIN = "FIN"
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+
+#######  REGISTRY   ######
+
 def signal_handler(sig, frame):
     # Tareas de limpieza aquí, si es necesario
     print("Cerrando conexión...")
@@ -23,7 +28,7 @@ def signal_handler(sig, frame):
 # Asigna el manejador de señales
 signal.signal(signal.SIGINT, signal_handler)
 
-def send(msg,client):
+def send(msg, client):
     message = msg.encode(FORMAT)
     msg_length = len(message)
     send_length = str(msg_length).encode(FORMAT)
@@ -31,7 +36,6 @@ def send(msg,client):
     client.send(send_length)
     client.send(message)
     
-########## MAIN ##########
 def start():
     if  (len(sys.argv) == 4):
         SERVER = sys.argv[1]
@@ -59,3 +63,58 @@ def start():
         print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Alias deseado>")
 
 start()
+
+#######   ENGINE   #######
+
+class Producer(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        while True:
+            producer = KafkaProducer(bootstrap_servers="localhost:9092")
+            data = pickle.dumps("Posición a la que me muevo")
+            producer.send('topic_a', data)
+
+            print("Me he movido")
+
+            producer.close()
+            time.sleep(4)
+
+class Consumer(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def run(self):
+        grupo = '1'
+        consumer2 = KafkaConsumer(bootstrap_servers='localhost:9092',
+                                            auto_offset_reset='latest',
+                                            consumer_timeout_ms=1000, group_id = grupo)
+
+        consumer2.subscribe(['topic_b'])
+
+        while not self.stop_event.is_set():
+            for message in consumer2:
+                print(pickle.loads(message.value))
+
+                if self.stop_event.is_set():
+                    break
+                #print("Leyendo mensajes de entrypark")
+
+
+tasks = [start(), Consumer(), Producer()]
+
+for t in tasks:
+    t.start()
+
+while True:
+
+    time.sleep(1)

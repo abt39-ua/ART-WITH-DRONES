@@ -14,7 +14,7 @@ SERVER = socket.gethostbyname(socket.gethostname())
 ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 FIN = "FIN"
-MAX_CONEXIONES = 2
+MAX_CONEXIONES = 100
 
 def borrar_archivo():
     try:
@@ -31,8 +31,8 @@ def signal_handler(sig, frame):
     print("Cerrando el servidor...")
     # Borrar el archivo registro.txt al cerrar el servidor
     borrar_archivo()
-    sys.exit(0)  # Sale del programa
     server.close()  # Cierra el socket del servidor
+    sys.exit(0)  # Sale del programa
 
 # Asigna el manejador de señales
 signal.signal(signal.SIGINT, signal_handler)
@@ -51,10 +51,9 @@ def handle_client(conn, addr):
             if msg == FIN:
                 connected = False
             print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
-            conn.send(f"Se te ha asignado el ID: {ID}, y el alias {msg}".encode(FORMAT))
+            conn.send(str(ID).encode(FORMAT))
             save_info(ID, msg)
             ID += 1  # Incrementar el ID para el próximo cliente
-    print("ADIOS. TE ESPERO EN OTRA OCASION")
     conn.close()
     
 
@@ -63,7 +62,7 @@ def start():
     try:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Habilita la opción SO_REUSEADDR
         server.listen()
-        print(f"[LISTENING] Servidor a la escucha en {SERVER}")
+        print(f"[LISTENING] Servidor a la escucha en {ADDR}")
         CONEX_ACTIVAS = threading.active_count()-1
         print(CONEX_ACTIVAS)
         while True:
