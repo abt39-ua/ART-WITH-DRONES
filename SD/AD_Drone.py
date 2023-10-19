@@ -14,9 +14,9 @@ HEADER = 64
 PORT = 5050
 FORMAT = 'utf-8'
 FIN = "FIN"
-X = 0
+X = -1
 Xi = 0
-Y = 0
+Y = -1
 Yi = 0
 
 #######  REGISTRY   ######
@@ -89,7 +89,12 @@ def mov(x, y, xi, yi):
             Xi = xi
             Yi = yi
             return Xi, Yi
-    
+        
+
+def limpiar():
+    global Xi, Yi
+    Xi = 0
+    Yi = 0
 
 #######   ENGINE   #######
 
@@ -102,15 +107,16 @@ class Producer(threading.Thread):
         self.stop_event.set()
 
     def run(self):
-        while True:
+        while not self.stop_event.is_set():
             producer = KafkaProducer(bootstrap_servers="localhost:9092")
 
             if X == Xi and Y == Yi:
                 info = {"El Drone ": {ID}, " ha llegado a su destino: (": {X}, ", ": {Y}, ")": {}}
-                Producer().stop()
+                limpiar()
+                self.stop()
 
             else:
-                info = {"Posición a la que se mueve el drone ": {id}, ": (": {Xi}, ", ": {Yi}, ")": {}}
+                info = {"Posición a la que se mueve el drone ": {ID}, ": (": {Xi}, ", ": {Yi}, ")": {}}
                 print(f"Me he movido a ({Xi}, {Yi})")
 
             data = pickle.dumps(info)
@@ -129,6 +135,7 @@ class Consumer(threading.Thread):
         self.stop_event.set()
 
     def run(self):
+        global ID
         coord = {}
         ID = '1'
         grupo = '1'
@@ -141,7 +148,6 @@ class Consumer(threading.Thread):
         while not self.stop_event.is_set():
             for message in consumer2:
                 data = pickle.loads(message.value)
-                print(data)
 
                 if isinstance(data, dict):
                     for id, (x, y) in data.items():
@@ -168,6 +174,7 @@ def main():
     print("2. Empezar representación")
     print("3. Apagarse")
     orden = input()
+    limpiar()
 
     while orden != "1" and orden != "2" and orden != "3":
         print("Error, indica una de las 3 posibilidades por favor(1, 2 o 3).")
