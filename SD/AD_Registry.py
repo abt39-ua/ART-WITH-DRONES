@@ -6,7 +6,7 @@ nom_archivo = "registro.txt"
 
 HEADER = 64
 PORT = 5051
-SERVER = socket.gethostbyname(socket.gethostname())
+SERVER = "172.20.53.58"
 ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 FIN = "FIN"
