@@ -9,9 +9,8 @@ import threading
 
 ID=0
 alias = ""
-
+ADDR: int = 0
 HEADER = 64
-PORT = 5050
 FORMAT = 'utf-8'
 FIN = "FIN"
 X = -1
@@ -29,15 +28,12 @@ def send(msg, client):
     client.send(send_length)
     client.send(message)
     
-def registry():
-    msg =input("Introduce tu alias")
-    #if  (len(sys.argv) == 4):
-    SERVER = sys.argv[1]
-    PORT = int(sys.argv[2])
-    ADDR = (SERVER, PORT)
+def registry(ADDR):
+    msg = input("Introduce tu alias")
     
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(ADDR)
+
     print (f"Establecida conexión en [{ADDR}]")
 
         #msg=sys.argv[3]
@@ -97,6 +93,7 @@ def limpiar():
     Yi = 0
 
 #######   ENGINE   #######
+
 
 class Producer(threading.Thread):
     def __init__(self):
@@ -167,8 +164,16 @@ def resval():
     Yi = 0
 
 def main(argv = sys.argv):
-    global ID
-    ID = argv[0]
+    
+    Server_E = argv[0]
+    Port_E = int(argv[1])
+    Server_Kafka = argv[2]
+    Port_Kafka = int(argv[3])
+    Server_R = argv[4]
+    Port_R = int(argv[5])
+
+    global ID, ADDR
+    ID = int(argv[6])
     print("¿Qué deseas hacer?")
     print("1. Registrarse")
     print("2. Empezar representación")
@@ -181,7 +186,8 @@ def main(argv = sys.argv):
         orden = input()
 
     if orden == "1":
-        registry()
+        ADDR = (Server_R, Port_R)
+        registry(ADDR)
 
     if orden == "2":
         tasks = [Consumer(), Producer()]
@@ -197,3 +203,5 @@ def main(argv = sys.argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
+# 
