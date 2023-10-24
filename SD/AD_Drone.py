@@ -28,9 +28,12 @@ def send(msg, client):
     
 def registry(ADDR):
     msg = input("Introduce tu alias")
+def registry(ADDR):
+    msg = input("Introduce tu alias")
     
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(ADDR)
+
     print (f"Establecida conexión en [{ADDR}]")
 
     print("Realizando solicitud al servidor")
@@ -79,6 +82,7 @@ def limpiar():
     Yi = 0
 
 #######   ENGINE   #######
+
 
 class Producer(threading.Thread):
     def __init__(self):
@@ -197,3 +201,5 @@ def main(argv = sys.argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
+# 

@@ -13,6 +13,7 @@
 #creamos en otro terminal el consumidor
 ./bin/kafka-console-consumer.sh --topic SD --bootstrap-server localhost:9092 --from-beginning
 
+pip3 install kafka-python
 
 sudo apt-get install openjdk-8-jdk
 sudo apt-get install zookeeper
