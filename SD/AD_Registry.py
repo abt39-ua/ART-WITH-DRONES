@@ -1,17 +1,15 @@
 import socket 
 import threading
 import os
+import sys
 
 nom_archivo = "registro.txt"
 
 HEADER = 64
-PORT = 5051
 SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 FIN = "FIN"
-MAX_CONEXIONES = 2
-
+MAX_CONEXIONES = 20
 
 
 def handle_client(conn, addr, ID):
@@ -53,6 +51,7 @@ def start():
             conn.close()
             CONEX_ACTUALES = threading.active_count()-1
 
+
 def save_info(ID, alias):
     # Se comprueba que el archivo está creado y si no lo esta, lo crea
     try:
@@ -65,14 +64,24 @@ def save_info(ID, alias):
 
 ######################### MAIN ##########################
 
+def main(argv = sys.argv):
+    global server
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(ADDR)
+    PORT = int(sys.argv[1])
+    ADDR = (SERVER, PORT)
 
-print("[STARTING] Servidor inicializándose...")
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(ADDR)
 
-#Vaciamos el registro anterior
-with open(nom_archivo, 'w') as registro:
-    pass
+    print("[STARTING] Servidor inicializándose...")
 
-start()
+    #Vaciamos el registro anterior
+    with open(nom_archivo, 'w') as registro:
+        pass
+
+    start()
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
+# python3 AD_Registry.py 5051

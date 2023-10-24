@@ -8,10 +8,7 @@ import time
 import threading
 
 ID=0
-alias = ""
-
 HEADER = 64
-PORT = 5050
 FORMAT = 'utf-8'
 FIN = "FIN"
 X = -1
@@ -29,34 +26,19 @@ def send(msg, client):
     client.send(send_length)
     client.send(message)
     
-def registry():
-    msg =input("Introduce tu alias")
-    #if  (len(sys.argv) == 4):
-    SERVER = sys.argv[1]
-    PORT = int(sys.argv[2])
-    ADDR = (SERVER, PORT)
+def registry(ADDR):
+    msg = input("Introduce tu alias")
     
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(ADDR)
     print (f"Establecida conexión en [{ADDR}]")
 
-        #msg=sys.argv[3]
-    while msg != FIN :
-        print("Realizando solicitud al servidor")
-        send(msg, client)
-        ID = client.recv(2048).decode(FORMAT)
-        #print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
-        print(f"Recibo del Servidor: {ID}")
-        #ID = client.recv(2048).decode(FORMAT)
-        msg=input()
-
-    print(f"{ID}")
-    print ("SE ACABO LO QUE SE DABA")
-    print("Envio al servidor: ", FIN)
-    send(FIN)
+    print("Realizando solicitud al servidor")
+    send(msg, client)
+    ID = client.recv(2048).decode(FORMAT)
+    print(f"Recibo del Servidor: {ID}")
+ 
     client.close()
-    #else:
-    #    print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Alias deseado>")
 
 ######  DRONE   ######
 
@@ -167,33 +149,51 @@ def resval():
     Yi = 0
 
 def main(argv = sys.argv):
-    global ID
-    ID = argv[0]
-    print("¿Qué deseas hacer?")
-    print("1. Registrarse")
-    print("2. Empezar representación")
-    print("3. Apagarse")
-    orden = input()
-    limpiar()
+    if len(sys.argv) != 7:
+        print("Error: El formato debe ser el siguiente: [IP_Engine] [Puerto_Engine] [IP_Broker] [Puerto_Broker] [IP_Registry] [Puerto_Registry]")
+        sys.exit(1)
+    else:  
+        global ADDR, ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port
+        
+        ad_engine_ip = sys.argv[1]
+        ad_engine_port = int(sys.argv[2])
+        broker_ip = sys.argv[3]
+        broker_port = int(sys.argv[4])
+        ad_registry_ip = sys.argv[5]
+        ad_registry_port = int(sys.argv[6])
+        orden = ""
+        while(orden != "3"):
+            
+            print("¿Qué deseas hacer?")
+            print("1. Registrarse")
+            print("2. Empezar representación")
+            print("3. Apagarse")
+            orden = input()
+      
 
-    while orden != "1" and orden != "2" and orden != "3":
-        print("Error, indica una de las 3 posibilidades por favor(1, 2 o 3).")
-        orden = input()
+            while orden != "1" and orden != "2" and orden != "3":
+                print("Error, indica una de las 3 posibilidades por favor(1, 2 o 3).")
+                orden = input()
 
-    if orden == "1":
-        registry()
+            if orden == "1":
+                if(ID != 0):
+                    print("Ya estás registrado!")
+                else:
+                    ADDR = (ad_registry_ip, ad_registry_port)
+                    registry(ADDR)
 
-    if orden == "2":
-        tasks = [Consumer(), Producer()]
+            if orden == "2":
+                tasks = [Consumer(), Producer()]
 
-        for t in tasks:
-            t.start()
+                for t in tasks:
+                    t.start()
 
-        while True:
-            time.sleep(1)
+                while True:
+                    time.sleep(1)
 
-    if orden == "3":
-        sys.exit()
+            if orden == "3":
+                sys.exit()
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
