@@ -1,4 +1,3 @@
-
 import json
 import socket
 import sys
@@ -7,6 +6,7 @@ from kafka import KafkaProducer
 import pickle
 import time
 import threading
+import signal
 
 ID=0
 alias = ""
@@ -28,6 +28,16 @@ ad_registry_port = 0
 
 semaforo = threading.Semaphore(value=1)
 
+def handle_interrupt(signum, frame):
+    global ID
+    print(f"Cerrando conexión...")
+    client.close()
+    producer.close()
+    sys.exit(1)
+
+# Manejar la señal SIGINT (CTRL+C)
+signal.signal(signal.SIGINT, handle_interrupt)
+
 def send(msg, client):
     message = msg.encode(FORMAT)
     msg_length = len(message)
@@ -37,11 +47,9 @@ def send(msg, client):
     client.send(message)
     
 def registry():
-    global ID, ca_x, ca_y
-    ca_x = 1
-    ca_y = 1
+    global ID
     alias=input("Introduce tu alias: ")
-    ADDR = (ad_engine_ip, ad_engine_port)  
+    ADDR = (ad_registry_ip, ad_registry_port)  
         
     
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -71,7 +79,9 @@ def volver():
 #######   ENGINE   #######
 
 class Producer(threading.Thread):
-    global ID
+    global ID, ca_x, ca_y
+    ca_x = 1
+    ca_y = 1
     def __init__(self):
         threading.Thread.__init__(self)
         self.broker_address = f"{broker_ip}:{broker_port}"
@@ -184,7 +194,7 @@ def main(argv = sys.argv):
         print("Error: El formato debe ser el siguiente: [IP_Engine] [Puerto_Engine] [IP_Broker] [Puerto_Broker] [IP_Registry] [Puerto_Registry]")
         sys.exit(1)
     else:  
-        global ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port
+        global ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port, ID
         
         ad_engine_ip = sys.argv[1]
         ad_engine_port = int(sys.argv[2])
@@ -212,13 +222,17 @@ def main(argv = sys.argv):
                     registry()
 
             if orden == "2":
-                tasks = [Consumer(), Producer()]
+                print(ID)
+                if(ID == 0):
+                    print("No estás registrado!")
+                else:
+                    tasks = [Consumer(), Producer()]
 
-                for t in tasks:
-                    t.start()
+                    for t in tasks:
+                        t.start()
 
-                while True:
-                    time.sleep(1)
+                    while True:
+                        time.sleep(1)
 
             if orden == "3":
                 sys.exit()
