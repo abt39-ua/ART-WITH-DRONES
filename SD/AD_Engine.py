@@ -132,13 +132,19 @@ for fila in matriz:
 """
 # Códigos de escape ANSI para colores de fondo
 FONDO_ROJO = "\033[41m"
+FONDO_VERDE = "\033[42m"
+FONDO_CREMA = "\033[48;5;224m"
 RESET = "\033[0m"
+TEXTO_ROJO = "\033[31m"
+TEXTO_NEGRO = "\033[30m"
+LETRA_GROSOR_NEGRITA = "\033[1m"
+
 
 
 cuadrado = "□"
 
 
-def imprimir_mapa_actualizado(mapa):
+def imprimir_mapa_actualizado(mapa, figura):
     n = 0
     for y in range(20):
         for x in range(20):
@@ -150,27 +156,63 @@ def imprimir_mapa_actualizado(mapa):
             n = max(n, cantidad_drones)  # Actualiza n con el máximo número de drones encontrados en una casilla
     
     longitud_maxima = max(len(cuadrado),(n))        
-    
-    for x in range(20):
-        # Imprimir número de la fila
-        print(str(x+1).rjust(2), end=" ")
-        for y in range(20):
-            drones_en_casilla = []
-            id_dron = None
-            for id, posicion in mapa.items():
-                if posicion == (x, y):
-                    drones_en_casilla.append(id)
-            if drones_en_casilla:
-                numeros_drones = ' '.join(str(id_dron) for id_dron in drones_en_casilla)
-                numero_formateado = numeros_drones.rjust(longitud_maxima)
-                if(longitud_maxima-len(drones_en_casilla)) != 0:
-                    print(FONDO_ROJO + numero_formateado + RESET, end=" "*(longitud_maxima))
+    figura_ajustada = {
+        int(i): (x - 1, y - 1) for i, (x, y) in figura.items()
+    }
+    print(mapa)
+    print(figura_ajustada)
+    if(mapa != figura_ajustada):
+        for x in range(20):
+            # Imprimir número de la fila
+            print(str(x+1).rjust(2), end=" ")
+            for y in range(20):
+                drones_en_casilla = []
+                id_dron = None
+                for id, posicion in mapa.items():
+                    if posicion == (x, y):
+                        drones_en_casilla.append(id)
+                if drones_en_casilla:
+                    numeros_drones = ' '.join(str(id_dron) for id_dron in drones_en_casilla)
+                    numero_formateado = numeros_drones.rjust(longitud_maxima)
+                    if(longitud_maxima-len(drones_en_casilla)) != 0:
+                        print(FONDO_ROJO + numero_formateado + RESET, end=" "*(longitud_maxima))
+                    else:
+                        print(FONDO_ROJO + numero_formateado + RESET, end=" ")
                 else:
-                    print(FONDO_ROJO + numero_formateado + RESET, end=" ")
-            else:
-                cuadrado_formateado = cuadrado.rjust(longitud_maxima)
-                print(cuadrado_formateado, end=" "*longitud_maxima)  # Imprimir espacio en blanco si no hay dron en esa posición
-        print()  # Nueva línea para la siguiente fila
+                    cuadrado_formateado = cuadrado.rjust(longitud_maxima)
+                    print(cuadrado_formateado, end=" "*longitud_maxima)  # Imprimir espacio en blanco si no hay dron en esa posición
+            print()  # Nueva línea para la siguiente fila
+    else:
+        encabezado = "*********** ART WITH DRONES **********"
+        tablero_width = 20 * (longitud_maxima + 3)  # Tamaño total del tablero (20 filas, cada una con longitud_maxima y un espacio)
+        encabezado_centralizado = encabezado.center(tablero_width)
+        print(encabezado_centralizado)
+        mensaje = "FIGURA COMPLETADA"
+        mensaje_centralizado = mensaje.center(tablero_width)
+        print(FONDO_CREMA + LETRA_GROSOR_NEGRITA + TEXTO_NEGRO + mensaje_centralizado + RESET)
+        for x in range(20):
+            # Imprimir número de la fila
+            print(str(x+1).rjust(2), end=" ")
+            for y in range(20):
+                drones_en_casilla = []
+                id_dron = None
+                for id, posicion in mapa.items():
+                    if posicion == (x, y):
+                        drones_en_casilla.append(id)
+                if drones_en_casilla:
+                    numeros_drones = ' '.join(str(id_dron) for id_dron in drones_en_casilla)
+                    numero_formateado = numeros_drones.rjust(longitud_maxima)
+                    if(longitud_maxima-len(drones_en_casilla)) != 0:
+                        print(FONDO_VERDE + TEXTO_ROJO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*(longitud_maxima))
+                    else:
+                        print(FONDO_VERDE + TEXTO_ROJO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" ")
+                else:
+                    cuadrado_formateado = cuadrado.rjust(longitud_maxima)
+                    print(cuadrado_formateado, end=" "*longitud_maxima)  # Imprimir espacio en blanco si no hay dron en esa posición
+            print()  # Nueva línea para la siguiente fila
+
+
+    
     
 
 
@@ -199,7 +241,7 @@ class Consumer(threading.Thread):
             mapa[id] = (x, y)
             if len(mapa) == len(registrados) == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
                 time.sleep(1)
-                imprimir_mapa_actualizado(mapa)
+                imprimir_mapa_actualizado(mapa, figura)
         finally:
             pass
 

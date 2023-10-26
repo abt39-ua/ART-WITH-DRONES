@@ -33,7 +33,7 @@ def handle_interrupt(signum, frame):
     print(f"Cerrando conexión...")
     client.close()
     producer.close()
-    sys.exit(1)
+    sys.exit(0)
 
 # Manejar la señal SIGINT (CTRL+C)
 signal.signal(signal.SIGINT, handle_interrupt)
