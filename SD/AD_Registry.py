@@ -96,14 +96,14 @@ def save_info(ID, alias):
 
 def main(argv = sys.argv):
     global ad_registry_port, ADDR, ad_registry_ip, server
-    if len(sys.argv) != 2:
-        print("Error: El formato debe ser el siguiente: [Puerto_escucha]")
+    if len(sys.argv) != 3:
+        print("Error: El formato debe ser el siguiente: [Puerto_escucha] [IP_Registry]")
         sys.exit(1)
     else:  
         global ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port
         
         ad_registry_port = int(sys.argv[1])
-        ad_registry_ip = socket.gethostbyname(socket.gethostname())
+        ad_registry_ip = sys.argv[2]
         ADDR = (ad_registry_ip, ad_registry_port)
         server.bind(ADDR)
 

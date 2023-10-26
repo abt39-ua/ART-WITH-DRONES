@@ -318,7 +318,7 @@ def main(argv = sys.argv):
     broker_port = argv[3]
 
     tam = len(argv)
-
+    print(tam)
     getFigura()
     print(figura)
     print(len(figura))
@@ -362,8 +362,7 @@ def main(argv = sys.argv):
         for t in tasks:
             t.start()
 
-        # Iniciar el bucle principal de la interfaz gráfica
-        root.mainloop()
+       
         while True:
 
             time.sleep(1)
