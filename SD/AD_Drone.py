@@ -25,11 +25,9 @@ def send(msg, client):
     send_length += b' ' * (HEADER - len(send_length))
     client.send(send_length)
     client.send(message)
-    
+
 def registry(ADDR):
-    msg = input("Introduce tu alias")
-def registry(ADDR):
-    msg = input("Introduce tu alias")
+    msg = input("Introduce tu alias: ")
     
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(ADDR)

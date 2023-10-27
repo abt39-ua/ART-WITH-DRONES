@@ -6,7 +6,6 @@ import sys
 nom_archivo = "registro.txt"
 
 HEADER = 64
-SERVER = socket.gethostbyname(socket.gethostname())
 FORMAT = 'utf-8'
 FIN = "FIN"
 MAX_CONEXIONES = 20
@@ -65,9 +64,10 @@ def save_info(ID, alias):
 ######################### MAIN ##########################
 
 def main(argv = sys.argv):
-    global server
+    global server, SERVER
 
     PORT = int(sys.argv[1])
+    SERVER = sys.argv[2]
     ADDR = (SERVER, PORT)
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -84,4 +84,4 @@ def main(argv = sys.argv):
 if __name__ == "__main__":
     main(sys.argv[1:])
 
-# python3 AD_Registry.py 5051
+# python3 AD_Registry.py 5051 172.20.53.43
