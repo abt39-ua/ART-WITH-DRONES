@@ -200,4 +200,4 @@ def main(argv = sys.argv):
 if __name__ == "__main__":
     main(sys.argv[1:])
 
-# 
+# python3 AD_Drone.py 127.0.0.1 5050 127.0.0.1 9092 127.0.0.1 5051

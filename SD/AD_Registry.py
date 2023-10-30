@@ -9,9 +9,23 @@ HEADER = 64
 FORMAT = 'utf-8'
 FIN = "FIN"
 MAX_CONEXIONES = 20
+ID = 1
 
 
-def handle_client(conn, addr, ID):
+def buscar_alias(alias):
+    with open("registro.txt", 'r') as file:
+        for line in file:
+            if f"Alias: {alias}" in line:
+                parts = line.split(", ")
+                for part in parts:
+                    if part.startswith("ID: "):
+                        return int(part.split(":")[1].strip())
+                break
+    return "0"
+
+
+def handle_client(conn, addr):
+    global ID
     print(f"[NUEVA CONEXION] {addr} connected.")
     connected = True
     while connected:
@@ -19,18 +33,22 @@ def handle_client(conn, addr, ID):
         if msg_length:
             msg_length = int(msg_length)
             msg = conn.recv(msg_length).decode(FORMAT)
-            if msg == FIN:
-                connected = False
-            else:
-                print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
+            Alias = buscar_alias(msg)
+            print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
+            if Alias == "0":
                 conn.send(f"{ID}".encode(FORMAT))
                 save_info(ID, msg)
+                ID = ID + 1
+
+            else:
+                conn.send(f"Este Dron ya estaba registrado con el ID: {ID}".encode(FORMAT))
+
+
     print("ADIOS. TE ESPERO EN OTRA OCASION")
     conn.close()
     
 
 def start():
-    ID = 1
     server.listen()
     print(f"[LISTENING] Servidor a la escucha en {SERVER}")
     CONEX_ACTIVAS = threading.active_count()-1
@@ -39,9 +57,8 @@ def start():
         conn, addr = server.accept()
         CONEX_ACTIVAS = threading.active_count()
         if (CONEX_ACTIVAS <= MAX_CONEXIONES): 
-            thread = threading.Thread(target=handle_client, args=(conn, addr, ID))
+            thread = threading.Thread(target=handle_client, args=(conn, addr))
             thread.start()
-            ID = ID + 1
             print(f"[CONEXIONES ACTIVAS] {CONEX_ACTIVAS}")
             print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO", MAX_CONEXIONES-CONEX_ACTIVAS)
         else:
