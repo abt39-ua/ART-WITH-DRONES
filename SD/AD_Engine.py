@@ -150,6 +150,7 @@ def getWeather(ciudad, SERVER, PORT):
 
         time.sleep(10)
 
+#####    INFO FIGURA   #######
 
 def getFigura():
     datos = {}
@@ -243,6 +244,7 @@ def main(argv = sys.argv):
     try:
         if tam == 6:
             print(f'{argv[1]}')
+            """
             ###  WEATHER  ###
             ADDR = (Server_W, Port_W)
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -260,6 +262,7 @@ def main(argv = sys.argv):
                 time.sleep(10)
                 contador += 1
             client.close()
+            """
 
         ###  KAFKA  ###
 

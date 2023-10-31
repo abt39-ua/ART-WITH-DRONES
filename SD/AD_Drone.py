@@ -27,6 +27,7 @@ def send(msg, client):
     client.send(message)
 
 def registry(ADDR):
+    global ID
     msg = input("Introduce tu alias: ")
     
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -130,9 +131,9 @@ class Consumer(threading.Thread):
         while not self.stop_event.is_set():
             for message in consumer2:
                 data = pickle.loads(message.value)
-
                 if isinstance(data, dict):
                     for id, (x, y) in data.items():
+                        print(f"{ID}, {id}")
                         if ID == id:
                             print(f'ID: {id}, Coordenadas:({x}, {y})')
                             setCoords(x,y)
@@ -164,6 +165,7 @@ def main(argv = sys.argv):
         ad_registry_ip = sys.argv[5]
         ad_registry_port = int(sys.argv[6])
         orden = ""
+
         while(orden != "3"):
             
             print("¿Qué deseas hacer?")

@@ -41,7 +41,7 @@ def handle_client(conn, addr):
                 ID = ID + 1
 
             else:
-                conn.send(f"Este Dron ya estaba registrado con el ID: {ID}".encode(FORMAT))
+                conn.send(f"Este Dron ya estaba registrado con el ID: {Alias}".encode(FORMAT))
 
 
     print("ADIOS. TE ESPERO EN OTRA OCASION")
