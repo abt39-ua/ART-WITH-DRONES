@@ -1,50 +1,30 @@
 import socket
 import argparse
 import threading
-import sys
 
 HEADER = 64
+PORT = 5050
 SERVER = socket.gethostbyname(socket.gethostname())
-
+ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 FIN = "FIN"
-<<<<<<< HEAD
-MAX_CONEXIONES = 2
-DATOS_CIUDADES = {}
-=======
 MAX_CONEXIONES = 200
->>>>>>> e430cff (Mapa realiza más figuras y gestiona clima)
 
-# Función que obtiene el nombre de la ciudad a partir de su nombre en minúscula.
-# Si la ciudad no se encuentra en el diccionario, devuelve "Ciudad no encontrada".
-
-def obtener_nombre_ciudad(ciudad, DATOS_CIUDADES):
-    ciudad = ciudad.lower()
-    if ciudad in DATOS_CIUDADES:
-        return ciudad, DATOS_CIUDADES[ciudad]
-    else:
-        return "Ciudad no encontrada", None
-
-def procesar_archivo():
+def obtener_nombre_ciudad(ciudad):
     try:
-        # Abrimos el archivo en modo lectura y lo asignamos a la variable "archivo".
-        # Se cerrará automáticamente cuando salgamos del ámbito.
-        with open('ciudades.txt', 'r') as archivo: 
-            
-            # Leemos cada línea del archivo y cargamos los datos en el diccionario
+        # Abrimos el archivo en modo lectura
+        with open('ciudades.txt', 'r') as archivo:
             for linea in archivo:
-                # Divide la línea en dos partes usando ':' como separador
-                ciudad, valor_str = linea.strip().split(':')
-                
-                # Convertimos el valor a un entero
-                valor = int(valor_str)
-                
-                # Almacenamos la información en el diccionario
-                DATOS_CIUDADES[ciudad] = valor
-    
-    # Si no se encuentra el fichero "ciudades.txt"
+                ciudad_archivo, valor_str = linea.strip().split(':')
+                if ciudad.lower() == ciudad_archivo.lower():
+                    valor = int(valor_str)
+                    return ciudad_archivo, valor
+            else:
+                return "Ciudad no encontrada", None
     except FileNotFoundError:
-        print("Error: El archivo 'ciudades.txt' no se encuentra.")
+        return "Error: El archivo 'ciudades.txt' no se encuentra.", None
+    except Exception as e:
+        return f"Error: {e}", None
 
 def handle_client(conn, addr):
     try:
@@ -61,10 +41,8 @@ def handle_client(conn, addr):
                 print(f"El cliente [{addr}] solicita información sobre la ciudad: {msg}")
 
                 # Verificamos si la ciudad solicitada es válida
-                ciudad, valor = obtener_nombre_ciudad(msg, DATOS_CIUDADES)
-                # Definimos ciudades válidas basadas en las claves del diccionario
-                ciudades_validas = DATOS_CIUDADES.keys()
-                if ciudad != "Ciudad no encontrada" and ciudad in ciudades_validas and valor is not None:
+                ciudad, valor = obtener_nombre_ciudad(msg)
+                if ciudad != "Ciudad no encontrada" and valor is not None:
                     if valor > 0:
                         conn.send(f"En la ciudad {ciudad}, se puede actuar, ya que hacen {valor} grados.".encode(FORMAT)) 
                     else:
@@ -72,7 +50,7 @@ def handle_client(conn, addr):
                 else:
                     respuesta = "Ciudad no válida"
 
-        print("ADIOS. Cliente [{addr}] desconectado.") # Mensaje de despedida al cliente
+        print(f"ADIOS. Cliente [{addr}] desconectado.") # Mensaje de despedida al cliente
         conn.close()  # Cierra la conexión con el cliente
     except ConnectionResetError:
         print(f"Error de conexión con el cliente [{addr}].")
@@ -85,16 +63,7 @@ def handle_client(conn, addr):
     
 
 # Función principal para iniciar el servidor
-def main(argv = sys.argv):
-    global ADDR
-    PORT = int(argv[0])
-    ADDR = (SERVER, PORT)
-
-    # Crear un socket del servidor y enlazarlo al puerto y dirección.
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Crea un socket de tipo TCP/IP
-    server.bind(ADDR)  # Enlaza el socket a la dirección y puerto especificados
-    procesar_archivo()
-
+def start():
     try:
         server.listen()  # Empieza a escuchar por conexiones entrantes
         print(f"[ESCUCHANDO] Servidor a la escucha en {SERVER}")
@@ -137,8 +106,8 @@ def main(argv = sys.argv):
     finally:
         server.close()
 
+# Crear un socket del servidor y enlazarlo al puerto y dirección.
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Crea un socket de tipo TCP/IP
+server.bind(ADDR)  # Enlaza el socket a la dirección y puerto especificados
+start()
 
-
-
-if __name__ == "__main__":
-  main(sys.argv[1:])
