@@ -4,7 +4,6 @@
 #-enviar cada pos requerida a cada dron
 #-expresion del mapa a cada mov de dron
 
-
 import socket
 import sys
 import threading
@@ -14,21 +13,39 @@ from kafka import KafkaProducer
 from kafka import KafkaConsumer
 import pickle
 import signal
+import random
+import re
+import json
 
-mapa = [[0 for _ in range(20)] for _ in range(20)]
+registrados = {}
+mapa = {}
 HEADER = 64
 FORMAT = 'utf-8'
-FIN = "FIN"
-SERVER = socket.gethostbyname(socket.gethostname())
-MAX_CONEXIONES = 10
-
+ad_engine_port = 0
+MAX_Drones = 0
+broker_ip = ""
+broker_port = 0
+ad_weather_ip = ""
+ad_weather_port = 0
+ciudades = {}
+figura = {}
+figuras = {}
+volver_base = {}
+actuacion = True
+drones_positions_lock = threading.Lock()
+completada = False
+consumer_thread = None
+producer_thread = None
+t_consulta = 0
 temp =0
 output_lock = threading.Lock()
 
 def signal_handler(sig, frame):
     # Tareas de limpieza aquí, si es necesario
-    # Borrar el archivo registro.txt al cerrar el servidor
-    # Cierra el socket del servidor
+    if consumer_thread:
+        consumer_thread.stop()
+    if producer_thread:
+        producer_thread.stop()
     sys.exit(0)  # Sale del programa
 
 # Asigna el manejador de señales
@@ -41,179 +58,410 @@ def send(msg, client):
     send_length += b' ' * (HEADER - len(send_length))
     client.send(send_length)
     client.send(message)
+
+def obtener_nombre_ciudades():
+    global ciudades
+    try:
+        # Abrimos el archivo en modo lectura
+        with open('ciudades.txt', 'r') as archivo:
+            for linea in archivo:
+                # Dividimos la línea en ciudad y grados usando el carácter ':'
+                ciudad, grados = linea.strip().split(':')
+                # Guardamos la ciudad y grados en el diccionario
+                ciudades[ciudad] = grados
+    except FileNotFoundError:
+        return "Error: El archivo 'ciudades.txt' no se encuentra.", None
+    except Exception as e:
+        return f"Error: {e}", None
+
+def getWeather():
+    global ad_weather_ip, ad_weather_port
+    ADDR = (ad_weather_ip, ad_weather_port)
     
-def getWeather(ciudad, SERVER, PORT):
-    while True:
-        msg = ciudad
-        with output_lock:
-            if  (len(sys.argv) == 3):
-                #SERVER = sys.argv[1]
-                #PORT = int(sys.argv[2])
-                ADDR = (SERVER, PORT)
-                
-                client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                client.connect(ADDR)
-                print (f"Establecida conexión en [{ADDR}]")
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(ADDR)
 
-                #msg=input("¿En que ciudad se va a actuar?")
-                while msg != FIN :
-                    print("Envio al servidor: ", msg)
-                    send(msg, client)
-                    print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
-                    msg=input()
-                print("Envio al servidor: ", FIN)
-                send(FIN)
-                client.close()
+    obtener_nombre_ciudades()
+    ciudad_random = random.choice(list(ciudades.keys()))
+    
+    send(ciudad_random, client)
+    temperatura =  client.recv(2048).decode(FORMAT)
+    print("Recibo del Servidor: ", temperatura)
+
+    client.close()
+    match = re.search(r'(\-?\d+) grados', temperatura)
+    if match:
+        try:
+            temperatura = int(match.group(1))
+            print(temperatura)
+            if temperatura >= 0:
+                return True
             else:
-                print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Ciudad>")
+                return False
+        except ValueError:
+            print("El servidor no envió una temperatura válida.")
+            return False
 
-        # Crear una matriz 2D de 20x20 posiciones para representar el espacio aéreo
-            espacio_aereo = [[0 for _ in range(20)] for _ in range(20)]
 
-        # Imprimir la matriz para visualizar el espacio aéreo
-            for fila in espacio_aereo:
-                print(fila)
+def procesar_archivo_registro():
+    global registrados
+    try:
+        # Abrimos el archivo en modo lectura
+        with open('registro.txt', 'r') as archivo:
+            for linea in archivo:
+                # Eliminamos los caracteres especiales y dividimos la línea en partes
+                partes = linea.strip().split(',')
+                # Verificamos si hay suficientes partes en la línea
+                if len(partes) == 2:
+                    ID, alias = partes
+                    # Almacenamos el drone en el diccionario
+                    registrados[ID] = alias
+                        
+    except FileNotFoundError:
+        return "Error: No hay drones registrados.", None
+    except Exception as e:
+        return f"Error: {e}", None
 
-        time.sleep(10)
-
+def getFiguras():
+    global figuras
+    try:
+        with open("Figuras.json", "r") as file:
+            data = json.load(file)
+            figuras_data = data.get("figuras", [])
+            for figura_data in figuras_data:
+                nombre = figura_data.get("Nombre")
+                drones_data = figura_data.get("Drones", [])
+                drones_positions = {}
+                for drone in drones_data:
+                    ID = drone.get("ID")
+                    pos = drone.get("POS", "0,0").split(",")
+                    x, y = map(int, pos)
+                    drones_positions[ID] = (x, y)
+                figuras[nombre] = drones_positions
+            return figuras
+    except FileNotFoundError:
+        print("Error: El archivo 'figuras.json' no se encuentra.")
+    except Exception as e:
+        print(f"Error al leer el archivo JSON: {e}")
+    return None
 
 def getFigura():
-    datos = {}
-    with open("Figura.txt", 'r') as file:
-        for linea in file:
-            partes = linea.strip().split()
-            if len(partes) == 3:
-                ID = partes[0]
-                x = int(partes[1])
-                y = int(partes[2])
-                datos[ID] = (x, y)
-    return datos
-
-
-def getCoord(id):
-    datos = getFigura()
-    if id in datos:
-        coord = datos[id]
-        print(f"X: {coord[0]}, Y: {coord[1]}")
+    global figura, figuras
+    # Obtener la primera figura del diccionario de figuras
+    if figuras:
+        nombre_figura = next(iter(figuras))
+        drones = figuras[nombre_figura]
+        figura = {}
+        for ID, pos in drones.items():
+            x, y = pos
+            figura[ID] = (x, y)
+        # Eliminar la figura procesada del diccionario de figuras
+        del figuras[nombre_figura]
+        print("Figura procesada y guardada en figura:")
+        #print(figura)
     else:
-        print("No se han encontrado el ID en la figura.")
+        print("No hay más figuras para procesar.")
 
 
-#########  DRONE  ###########
+# Códigos de escape ANSI para colores de fondo
+FONDO_ROJO = "\033[41m"
+FONDO_VERDE = "\033[102m"
+FONDO_CREMA = "\033[48;5;224m"
+RESET = "\033[0m"
+TEXTO_NEGRO = "\033[30m"
+LETRA_GROSOR_NEGRITA = "\033[1m"
 
 
-class Consumer1(threading.Thread):
-    global mapa
+
+cuadrado = "□"
+
+
+def imprimir_mapa_actualizado(mapa, figura):
+    global completada
+    n = 0
+    for y in range(20):
+        for x in range(20):
+            drones_en_casilla = []
+            for id, posicion in mapa.items():
+                if posicion == (x, y):
+                    drones_en_casilla.append(id)
+            cantidad_drones = len(drones_en_casilla)
+            n = max(n, cantidad_drones)  # Actualiza n con el máximo número de drones encontrados en una casilla
+    
+    longitud_maxima = max(len(cuadrado),(n))        
+    figura_ajustada = {
+        int(i): (x - 1, y - 1) for i, (x, y) in figura.items()
+    }
+    #print(mapa)
+    #print(figura_ajustada)
+    #print(longitud_maxima)
+    # Imprimir línea de números del 1 al 20
+    if(mapa == figura_ajustada):
+        completada = True
+        encabezado = "*********** ART WITH DRONES **********"
+        tablero_width = 20 * (longitud_maxima + 3)  # Tamaño total del tablero (20 filas, cada una con longitud_maxima y un espacio)
+        encabezado_centralizado = encabezado.center(tablero_width)
+        print(encabezado_centralizado)
+        mensaje = "FIGURA COMPLETADA"
+        mensaje_centralizado = mensaje.center(tablero_width)
+        print(FONDO_CREMA + LETRA_GROSOR_NEGRITA + TEXTO_NEGRO + mensaje_centralizado + RESET)
+
+    if(longitud_maxima > 2):
+        print("   " + "  ".join(str(i).rjust(longitud_maxima*2-2) for i in range(1, 21)))
+    else:
+        print("   " + " ".join(str(i).rjust(3) for i in range(1, 21)))
+    
+    for x in range(20):
+        # Imprimir número de la fila
+        print(str(x+1).rjust(2), end=" ")
+        for y in range(20):
+            drones_en_casilla = []
+            id_dron = None
+            for id, posicion in mapa.items():
+                if posicion == (x, y):
+                    drones_en_casilla.append(id)
+                
+            if(mapa == figura_ajustada):
+                if drones_en_casilla:
+                    numeros_drones = ' '.join(str(id_dron) for id_dron in drones_en_casilla)
+                    numero_formateado = numeros_drones.rjust(longitud_maxima)
+                    if(longitud_maxima != 1): 
+                        if(longitud_maxima-len(drones_en_casilla)) != 0:
+                            print(FONDO_VERDE + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*(longitud_maxima))
+                        else:
+                            print(FONDO_VERDE + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" ")
+                    else:
+                        if(longitud_maxima-len(drones_en_casilla)) != 0:
+                            print(' ' + FONDO_VERDE + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*(longitud_maxima))
+                        else:
+                            print(' ' + FONDO_VERDE + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*2)
+                else:
+                    if(longitud_maxima != 1):
+                        cuadrado_formateado = cuadrado.rjust(longitud_maxima)
+                        print(cuadrado_formateado, end=" "*longitud_maxima)  # Imprimir espacio en blanco si no hay dron en esa posición
+                    else:
+                        cuadrado_formateado = cuadrado.rjust(longitud_maxima*2)
+                        print(cuadrado_formateado, end=" "*longitud_maxima*2)
+
+            else:
+                if drones_en_casilla:
+                    numeros_drones = ' '.join(str(id_dron) for id_dron in drones_en_casilla)
+                    numero_formateado = numeros_drones.rjust(longitud_maxima)
+                    if(longitud_maxima != 1): 
+                        if len(drones_en_casilla) == 1 and figura_ajustada.get(int(drones_en_casilla[0])) == (x, y):
+                            if(longitud_maxima-len(drones_en_casilla)) != 0:
+                                print(FONDO_VERDE + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*(longitud_maxima))
+                            else:
+                                print(FONDO_VERDE + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" ")
+                        else:
+                            if(longitud_maxima-len(drones_en_casilla)) != 0:
+                                print(FONDO_ROJO + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*(longitud_maxima))
+                            else:
+                                print(FONDO_ROJO + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" ")
+                    else:
+                        if len(drones_en_casilla) == 1 and figura_ajustada.get(int(drones_en_casilla[0])) == (x, y):
+                            if(longitud_maxima-len(drones_en_casilla)) != 0:
+                                print(FONDO_VERDE + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*(longitud_maxima))
+                            else:
+                                print(' ' + FONDO_VERDE + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*2)
+                        else:
+                            if(longitud_maxima-len(drones_en_casilla)) != 0:
+                                print(FONDO_ROJO + numero_formateado + RESET, end=" "*(longitud_maxima))
+                            else:
+                                print(' ' + FONDO_ROJO + TEXTO_NEGRO + LETRA_GROSOR_NEGRITA + numero_formateado + RESET, end=" "*2)
+                else:
+                    if(longitud_maxima != 1): 
+                        cuadrado_formateado = cuadrado.rjust(longitud_maxima)
+                        print(cuadrado_formateado, end=" "*longitud_maxima)  # Imprimir espacio en blanco si no hay dron en esa posición
+                    else:
+                        cuadrado_formateado = cuadrado.rjust(longitud_maxima*2)
+                        print(cuadrado_formateado, end=" "*longitud_maxima*2) 
+        print()  # Nueva línea para la siguiente fila
+
+
+class Consumer(threading.Thread):
+    global mapa, registrados
     def __init__(self):
         threading.Thread.__init__(self)
+        self.broker_address = f"{broker_ip}:{broker_port}"
         self.stop_event = threading.Event()
+        #self.mapa_lock = threading.Lock()  # Crear un objeto de bloqueo
 
     def stop(self):
         self.stop_event.set()
 
     def actualizar_mapa(self, position_data):
-        id, (x, y) = position_data
-        if 0 <= x < 20 and 0 <= y < 20:
-            mapa[y][x] = 1
+        try:
+            id, (x, y) = position_data
+        except (TypeError, ValueError):
+            print("Datos de posición inválidos recibidos del dron.")
+            return # Adquirir el bloqueo antes de realizar actualizaciones en el mapa
+        
+        # Adquirir el Lock antes de modificar drones_positions
+       # drones_positions_lock.acquire()
+
+        try:
+            mapa[id] = (x, y)
+            #print(mapa)
+            #print(figura)
+            if len(mapa) == len(registrados) == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
+                time.sleep(1)
+                imprimir_mapa_actualizado(mapa, figura)
+        finally:
+            pass
+
+        # Liberar el Lock sin importar si ocurre una excepción
+        # drones_positions_lock.release()
+
 
     def run(self):
-        consumer2 = KafkaConsumer(bootstrap_servers='localhost:9092',
-                                            auto_offset_reset='latest',
-                                            consumer_timeout_ms=1000)
+        try:
+            consumer = KafkaConsumer(bootstrap_servers= self.broker_address,
+                                                auto_offset_reset='latest',
+                                                consumer_timeout_ms=1000)
 
-        consumer2.subscribe(['topic_a'])
+            consumer.subscribe(['topic_a'])
 
-        while not self.stop_event.is_set():
-            for message in consumer2:
-                try:
-                    position_data = pickle.loads(message.value)
-                    if isinstance(position_data, tuple) and len(position_data) == 2:
-                        self.actualizar_mapa(position_data)
-                        print(position_data)
-                    else:
-                        print("Datos inválidos recibidos del dron.")
-                except Exception as e:
-                    print(f"Error al procesar el mensaje: {e}")
+            while not self.stop_event.is_set():
+                for message in consumer:
+                    try:
+                        position_data = pickle.loads(message.value)
+                        if isinstance(position_data, tuple) and len(position_data) == 2:
+                            self.actualizar_mapa(position_data)
+                            print(position_data)
+                            print(len(mapa))
+                            print(len(registrados))
+                            print(len(figura))
+                        else:
+                            print("Datos inválidos recibidos del dron.")
+                    except Exception as e:
+                        print(f"Error al procesar el mensaje: {e}")
 
-                if self.stop_event.is_set():
-                    break
+                    if self.stop_event.is_set():
+                        break
+        except Exception as e:
+            print(f"Error en el consumidor: {e}")
+        
+
+def consultar_clima():
+    global actuacion
+    while True:
+        actuacion = getWeather()
+        time.sleep(int(t_consulta))
 
 class Producer(threading.Thread):
-    global mapa
+    global mapa, registrados, figura, volver_base, t_consulta, actuacion, figuras
     def __init__(self):
         threading.Thread.__init__(self)
+        self.broker_address = f"{broker_ip}:{broker_port}"
         self.stop_event = threading.Event()
-
+        self.mapa_lock = threading.Lock()  # Objeto de bloqueo para proteger el mapa
     def stop(self):
         self.stop_event.set()
 
+    def enviar_coordenadas_figura(self, drones_positions, producer_coor, producer_mapa):
+        #print(drones_positions)
+        
+        global completada
+        # Enviar coordenadas de la figura actual
+        producer_coor.send('topic_coord', pickle.dumps(drones_positions))
+        producer_mapa.send('topic_mapa', pickle.dumps(mapa))
+        
+        # Esperar a que los drones completen la figura actual
+        time.sleep(5)  # Esperar 5 segundos
+        
+        # Verificar si la figura está completada en el mapa
+        completada = self.verificar_completitud(mapa, drones_positions)
+
+    def verificar_completitud(self, mapa, coordenadas_figura):
+        global completada
+        #print(mapa)
+        figura_ajustada = {
+            int(i): (x - 1, y - 1) for i, (x, y) in coordenadas_figura.items()
+        }
+        #print(figura_ajustada)
+        print(completada)
+        if all(key in mapa and mapa[key] == value for key, value in figura_ajustada.items()):
+            return True
+        else:
+            return False
+
     def run(self):
-        while True:
-            info = getFigura()
-            
-            producer = KafkaProducer(bootstrap_servers='localhost:9092')
-            data = pickle.dumps(info)
-            producer.send('topic_b', data)
-            
-            mapa_serializado = pickle.dumps(mapa)
-            producer = KafkaProducer(bootstrap_servers='localhost:9092')
-            producer.send('topic_b', mapa_serializado)
+        global completada
+        # Inicia un hilo para consultar el clima cada t_consulta segundos
+        thread_consulta = threading.Thread(target=consultar_clima)
+        thread_consulta.start()
+        print(t_consulta)
+        getFiguras()
+        getFigura()
+        #print(figura)
+        #print(len(figura))
+        volver_base = {id: (1, 1) for id in figura.keys()}
+        while len(registrados) < len(figura):
+            time.sleep(1)
+            procesar_archivo_registro()
+        while not self.stop_event.is_set():
+            print("hola")
+            if(completada == True):
+                getFigura()
+                print("segunda figura:")
+                #print(figura)
+                #print(mapa)
+            while(mapa != figura):
+                if len(mapa) == len(registrados) == len(figura):
+                    if(actuacion == True):
+                        producer_coor = KafkaProducer(bootstrap_servers=self.broker_address )
+                        producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
+                        self.enviar_coordenadas_figura(figura, producer_coor, producer_mapa)
 
-            print("Engine enviando coord destino y mapa")
-            
-            producer.close()
-            time.sleep(4)
-
+                    else:
+                        self.enviar_coordenadas_figura(volver_base,producer_coor, producer_mapa)
+                        
+                else:
+                    pass
+                if(completada == True):
+                    "saliendoooo"
+                    break
+            # Llama a la función getWeather cada t_consulta segundos
+                
 
 ########## MAIN ##########
 
 def main(argv = sys.argv):
-    PORT = argv[0]
-    MAX_Drones = argv[1]
-    Server_Kafka = argv[2]
-    Port_Kafka = argv[3]
-    Server_W = argv[4]
-    Port_W = argv[5]
+    print(len(sys.argv))
+    if len(sys.argv) != 8:
+        print("Error: El formato debe ser el siguiente: [Puerto_Engine] [N_Máximo_Drones] [IP_Broker] [Puerto_Broker] [IP_Weather] [Puerto_Weather] [Tiempo_Consulta]")
+        sys.exit(1)
+    else:
+        global completada, ad_engine_port, MAX_Drones, broker_ip, broker_port, ad_weather_ip, ad_weather_port, t_consulta, mapa
+        ad_engine_port = int(argv[0])
+        MAX_Drones = argv[1]
+        broker_ip = argv[2]
+        broker_port = int(argv[3])
+        ad_weather_ip = argv[4]
+        ad_weather_port = int(argv[5])
+        t_consulta = argv[6]
 
+        tam = len(argv)
+        print(tam)
+        try:
 
-    tam = len(argv)
+            ###  KAFKA  ###
 
-    datos = getFigura()
-    print(datos)
+            tasks = [Consumer(), Producer()]
+            # Acceder a la instancia del consumidor desde la lista de tareas
+            consumer_thread = tasks[0]
+            producer_thread = tasks[1]
+            for t in tasks:
+                t.start()
 
-    try:
-        if tam == 5:
-            ###  WEATHER  ###
-            ADDR = (Server_W, Port_W)
-            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect(ADDR)
-            print (f"Establecida conexión en [{ADDR}]")
+        
+            while True:
 
-            msg=sys.argv[3]
-            contador = 0
-            while contador < 10:
-                print("Envio al servidor: ", msg)
-                send(msg)
-                print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
-                
-                # Pausar el programa durante el tiempo de consulta antes de enviar la próxima consulta
-                time.sleep(10)
-                contador += 1
-            client.close()
+                time.sleep(1)
 
-        ###  KAFKA  ###
-
-        tasks = [Consumer1(), Producer()]
-
-        for t in tasks:
-            t.start()
-
-        while True:
-
-            time.sleep(1)
-
-    except:
-        pass
+        except:
+            pass
 
 # Crear un mapa de 20x20 inicializado con ceros (posición vacía)
 
