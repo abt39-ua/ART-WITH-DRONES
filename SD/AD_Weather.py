@@ -8,8 +8,12 @@ SERVER = socket.gethostbyname(socket.gethostname())
 
 FORMAT = 'utf-8'
 FIN = "FIN"
+<<<<<<< HEAD
 MAX_CONEXIONES = 2
 DATOS_CIUDADES = {}
+=======
+MAX_CONEXIONES = 200
+>>>>>>> e430cff (Mapa realiza más figuras y gestiona clima)
 
 # Función que obtiene el nombre de la ciudad a partir de su nombre en minúscula.
 # Si la ciudad no se encuentra en el diccionario, devuelve "Ciudad no encontrada".

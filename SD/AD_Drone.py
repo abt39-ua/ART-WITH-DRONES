@@ -99,10 +99,7 @@ class Producer(threading.Thread):
             position_data = (ID, (ca_x, ca_y))
             if ca_x == cd_x and ca_y == cd_y:
                 print("He llegado a mi destino")
-                self.stop()
-
             else:
-                time.sleep(4)
                 print(f"Me he movido a ({ca_x+1}, {ca_y+1})")
 
             if position_data != self.last_sent_message:
@@ -115,7 +112,7 @@ class Producer(threading.Thread):
 
                 # Liberar el permiso del semáforo
                 semaforo.release()
-
+            time.sleep(3)
             producer.close()
 
 def setCoords(x, y):
@@ -168,6 +165,7 @@ class Consumer(threading.Thread):
             consumer_mapa.subscribe(['topic_mapa'])
 
             while not self.stop_event.is_set():
+                print("Estoy consumiendo")
                 for message in consumer_coord:
                     datos = message.value
                     for id, (x, y) in datos.items():

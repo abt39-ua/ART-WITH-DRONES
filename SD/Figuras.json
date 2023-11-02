@@ -1,0 +1,30 @@
+{
+    "figuras": [
+        {
+            "Nombre": "Triangulo",
+            "Drones": [
+                {
+                    "ID": 1,
+                    "POS": "3,5"
+                },
+                {
+                    "ID": 2,
+                    "POS": "3,6"
+                }
+            ]
+        },
+        {
+            "Nombre": "Cuadrado",
+            "Drones": [
+                {
+                    "ID": 1,
+                    "POS": "9,11"
+                },
+                {
+                    "ID": 2,
+                    "POS": "10,11"
+                }
+            ]
+        }
+    ]
+}
