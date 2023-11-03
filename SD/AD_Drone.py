@@ -59,7 +59,7 @@ def registry():
         #msg=sys.argv[3]
     print("Realizando solicitud al servidor")
     send(alias, client)
-    ID = int(client.recv(2048).decode(FORMAT))
+    ID = client.recv(2048).decode(FORMAT)
     #print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
     print(f"Recibo del Servidor: {ID}")
     #ID = client.recv(2048).decode(FORMAT)
