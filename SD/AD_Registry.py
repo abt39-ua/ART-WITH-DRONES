@@ -81,24 +81,33 @@ def save_info(ID, alias):
 ######################### MAIN ##########################
 
 def main(argv = sys.argv):
-    global server, SERVER
+    global server, SERVER, ID
 
     PORT = int(sys.argv[1])
     SERVER = sys.argv[2]
     ADDR = (SERVER, PORT)
+    opcion = int(sys.argv[3])
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(ADDR)
 
     print("[STARTING] Servidor inicializándose...")
 
-    #Vaciamos el registro anterior
-    with open(nom_archivo, 'w') as registro:
-        pass
+    #Vaciamos el registro anterior si 1, para continuar 0
+    modo = 'a' if opcion == 0 else 'w'
+    with open(nom_archivo, modo) as registro:
+        if modo == 1:
+            registro.truncate(0)
+
+    with open(nom_archivo, 'r') as file: 
+        lineas = file.readlines()
+        numlin = len(lineas)
+        ID = numlin + 1
 
     start()
 
 if __name__ == "__main__":
     main(sys.argv[1:])
 
-# python3 AD_Registry.py 5051 172.20.53.43
+# python3 AD_Registry.py 5051 172.20.53.43 0
+#0 para continuar, 1 para reiniciar
