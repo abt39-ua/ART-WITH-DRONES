@@ -1,14 +1,16 @@
 import socket
 import argparse
 import threading
+import sys
 
 HEADER = 64
-PORT = 5050
-SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 FIN = "FIN"
 MAX_CONEXIONES = 200
+ADDR = 0
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+ad_weather_ip = 0
+ad_weather_port = 0
 
 def obtener_nombre_ciudad(ciudad):
     try:
@@ -46,7 +48,7 @@ def handle_client(conn, addr):
                     if valor > 0:
                         conn.send(f"En la ciudad {ciudad}, se puede actuar, ya que hacen {valor} grados.".encode(FORMAT)) 
                     else:
-                        conn.send(f"En la ciudad {ciudad}, NO se puede actuar, ya que hacen {valor} grados.".encode(FORMAT)) 
+                        conn.send(f"CONDICIONES CLIMATICAS ADVERSAS. ESPECTACULO A LA ESPERA O FIINALIZADO. Temperatura: {valor} grados.".encode(FORMAT)) 
                 else:
                     respuesta = "Ciudad no válida"
 
@@ -64,9 +66,10 @@ def handle_client(conn, addr):
 
 # Función principal para iniciar el servidor
 def start():
+    global server, ad_weather_ip
     try:
         server.listen()  # Empieza a escuchar por conexiones entrantes
-        print(f"[ESCUCHANDO] Servidor a la escucha en {SERVER}")
+        print(f"[ESCUCHANDO] Servidor a la escucha en {ad_weather_ip}")
         
         # Obtiene el número de conexiones activas (hilos de clientes)
         CONEX_ACTIVAS = threading.active_count() - 1
@@ -106,8 +109,25 @@ def start():
     finally:
         server.close()
 
-# Crear un socket del servidor y enlazarlo al puerto y dirección.
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Crea un socket de tipo TCP/IP
-server.bind(ADDR)  # Enlaza el socket a la dirección y puerto especificados
-start()
 
+
+#####main####
+def main(argv = sys.argv):
+    global  server, ADDR, ad_weather_port, ad_weather_ip
+    if len(sys.argv) != 3:
+        print("Error: El formato debe ser el siguiente: [Puerto_escucha] [IP_Weather]")
+        sys.exit(1)
+    else:
+
+        ad_weather_port = int(sys.argv[1])
+        ad_weather_ip = sys.argv[2]
+        ADDR = (ad_weather_ip, ad_weather_port)
+        # Crear un socket del servidor y enlazarlo al puerto y dirección.
+        server.bind(ADDR)  # Enlaza el socket a la dirección y puerto especificados
+        print(ADDR)
+        start()
+
+        print("[STARTING] Servidor inicializándose...")
+
+if __name__ == "__main__":
+  main(sys.argv[1:])

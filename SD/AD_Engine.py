@@ -79,29 +79,37 @@ def getWeather():
     ADDR = (ad_weather_ip, ad_weather_port)
     
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(ADDR)
-
-    obtener_nombre_ciudades()
-    ciudad_random = random.choice(list(ciudades.keys()))
-    
-    send(ciudad_random, client)
-    temperatura =  client.recv(2048).decode(FORMAT)
-    print("Recibo del Servidor: ", temperatura)
-
-    client.close()
-    match = re.search(r'(\-?\d+) grados', temperatura)
-    if match:
+   
+    while True:
         try:
-            temperatura = int(match.group(1))
-            print(temperatura)
-            if temperatura >= 0:
-                return True
-            else:
-                return False
-        except ValueError:
-            print("El servidor no envió una temperatura válida.")
-            return False
+            client.connect(ADDR)
+            obtener_nombre_ciudades()
+            ciudad_random = random.choice(list(ciudades.keys()))
+            
+            send(ciudad_random, client)
+            temperatura =  client.recv(2048).decode(FORMAT)
+            print("Recibo del Servidor: ", temperatura)
 
+            client.close()
+            match = re.search(r'(\-?\d+) grados', temperatura)
+            if match:
+                try:
+                    temperatura = int(match.group(1))
+                    print(temperatura)
+                    if temperatura >= 0:
+                        return True
+                    else:
+                        return False
+                except ValueError:
+                    print("El servidor no envió una temperatura válida.")
+                    return False
+        except (ConnectionRefusedError, TimeoutError):
+            print("No se pudo establecer conexión con el servidor. Esperando 10 segundos y reintentando...")
+            print("Suponemos que hace un clima adecuado para actuar.")
+            time.sleep(10)
+        except Exception as e:
+            print(f"Error inesperado: {e}")
+            return False
 
 def procesar_archivo_registro():
     global registrados
@@ -159,7 +167,9 @@ def getFigura():
         del figuras[nombre_figura]
         print("Figura procesada y guardada en figura:")
         #print(figura)
+        return 0
     else:
+        return 1
         print("No hay más figuras para procesar.")
 
 
@@ -192,11 +202,13 @@ def imprimir_mapa_actualizado(mapa, figura):
     figura_ajustada = {
         int(i): (x - 1, y - 1) for i, (x, y) in figura.items()
     }
+
+    volver_base = {id: (1, 1) for id in figura.keys()}
     #print(mapa)
     #print(figura_ajustada)
     #print(longitud_maxima)
     # Imprimir línea de números del 1 al 20
-    if(mapa == figura_ajustada):
+    if mapa == figura_ajustada and figura_ajustada != volver_base:
         completada = True
         encabezado = "*********** ART WITH DRONES **********"
         tablero_width = 20 * (longitud_maxima + 3)  # Tamaño total del tablero (20 filas, cada una con longitud_maxima y un espacio)
@@ -305,7 +317,7 @@ class Consumer(threading.Thread):
             #print(mapa)
             #print(figura)
             if len(mapa) == len(registrados) == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
-                time.sleep(1)
+                time.sleep(4)
                 imprimir_mapa_actualizado(mapa, figura)
         finally:
             pass
@@ -332,6 +344,7 @@ class Consumer(threading.Thread):
                             print(len(mapa))
                             print(len(registrados))
                             print(len(figura))
+                            time.sleep(4)
                         else:
                             print("Datos inválidos recibidos del dron.")
                     except Exception as e:
@@ -350,7 +363,7 @@ def consultar_clima():
         time.sleep(int(t_consulta))
 
 class Producer(threading.Thread):
-    global mapa, registrados, figura, volver_base, t_consulta, actuacion, figuras
+    global mapa, registrados, figura, volver_base, t_consulta, actuacion, figuras, volver_base
     def __init__(self):
         threading.Thread.__init__(self)
         self.broker_address = f"{broker_ip}:{broker_port}"
@@ -363,9 +376,13 @@ class Producer(threading.Thread):
         #print(drones_positions)
         
         global completada
+        datos_a_enviar = {
+            "mapa": mapa,
+            "figura": figura
+        }
         # Enviar coordenadas de la figura actual
         producer_coor.send('topic_coord', pickle.dumps(drones_positions))
-        producer_mapa.send('topic_mapa', pickle.dumps(mapa))
+        producer_mapa.send('topic_mapa', pickle.dumps(datos_a_enviar))
         
         # Esperar a que los drones completen la figura actual
         time.sleep(5)  # Esperar 5 segundos
@@ -380,21 +397,23 @@ class Producer(threading.Thread):
             int(i): (x - 1, y - 1) for i, (x, y) in coordenadas_figura.items()
         }
         #print(figura_ajustada)
-        print(completada)
-        if all(key in mapa and mapa[key] == value for key, value in figura_ajustada.items()):
+        #print(completada)
+        volver_base = {id: (1, 1) for id in figura.keys()}
+        print(mapa)
+        print("------")
+        print(volver_base)
+        if all(key in mapa and mapa[key] == value for key, value in figura_ajustada.items()) and actuacion != False and mapa != volver_base:
             return True
         else:
             return False
 
     def run(self):
         global completada
+        n = 0
         # Inicia un hilo para consultar el clima cada t_consulta segundos
         thread_consulta = threading.Thread(target=consultar_clima)
         thread_consulta.start()
         print(t_consulta)
-        getFiguras()
-        getFigura()
-        #print(figura)
         #print(len(figura))
         volver_base = {id: (1, 1) for id in figura.keys()}
         while len(registrados) < len(figura):
@@ -402,27 +421,32 @@ class Producer(threading.Thread):
             procesar_archivo_registro()
         while not self.stop_event.is_set():
             print("hola")
-            if(completada == True):
-                getFigura()
-                print("segunda figura:")
-                #print(figura)
-                #print(mapa)
+            print(actuacion)
+            volver_base_ajustado = {
+                int(i): (x - 1, y - 1) for i, (x, y) in volver_base.items()
+            }
             while(mapa != figura):
                 if len(mapa) == len(registrados) == len(figura):
+                    print("Entré")
+                    print(actuacion)
+                    print(figura)
+                    producer_coor = KafkaProducer(bootstrap_servers=self.broker_address)
+                    producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
                     if(actuacion == True):
-                        producer_coor = KafkaProducer(bootstrap_servers=self.broker_address )
-                        producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
                         self.enviar_coordenadas_figura(figura, producer_coor, producer_mapa)
-
                     else:
                         self.enviar_coordenadas_figura(volver_base,producer_coor, producer_mapa)
-                        
                 else:
                     pass
-                if(completada == True):
-                    "saliendoooo"
-                    break
-            # Llama a la función getWeather cada t_consulta segundos
+                if actuacion == True and completada == True and mapa != volver_base_ajustado:
+                    time.sleep(5)
+                    n = getFigura()
+                    if(n == 0):
+                        print("siguiente figura:")
+                    else: 
+                        print("No hay más figuras para procesar:")
+                        while(True):
+                            self.enviar_coordenadas_figura(volver_base,producer_coor, producer_mapa)
                 
 
 ########## MAIN ##########
@@ -441,7 +465,8 @@ def main(argv = sys.argv):
         ad_weather_ip = argv[4]
         ad_weather_port = int(argv[5])
         t_consulta = argv[6]
-
+        getFiguras()
+        getFigura()
         tam = len(argv)
         print(tam)
         try:
