@@ -25,6 +25,7 @@ broker_ip = ""
 broker_port = 0
 ad_registry_ip = ""
 ad_registry_port = 0
+destino_alcanzado = False
 
 semaforo = threading.Semaphore(value=1)
 
@@ -60,11 +61,10 @@ def registry():
         partes_mensaje = mensaje.split(": ")
         if(len(partes_mensaje) == 2):
             ID = int(partes_mensaje[1])
-            print(mensaje)
         else:
             ID = int(partes_mensaje[0])
-            print(mensaje)
         print(f"Recibo del Servidor: {ID}")
+        print()
     except (ConnectionRefusedError, TimeoutError):
         print("No ha sido posible establecer conexión con el servidor de registro, inténtelo de nuevo.")
     
@@ -106,9 +106,6 @@ def imprimir_mapa_actualizado(mapa, figura):
     }
 
     volver_base = {id: (1, 1) for id in figura.keys()}
-    #print(mapa)
-    #print(figura_ajustada)
-    #print(longitud_maxima)
     # Imprimir línea de números del 1 al 20
     if mapa == figura_ajustada and figura_ajustada != volver_base:
         completada = True
@@ -210,17 +207,20 @@ class Producer(threading.Thread):
         self.stop_event.set()
 
     def run(self):
-        global semaforo
+        global semaforo, destino_alcanzado
         while not self.stop_event.is_set():
             producer = KafkaProducer(bootstrap_servers=self.broker_address)
 
             position_data = (ID, (ca_x, ca_y))
             if ca_x == cd_x and ca_y == cd_y:
-                print("He llegado a mi destino")
+                if destino_alcanzado == False:
+                    print("He llegado a mi destino")
+                    destino_alcanzado = True
             else:
-                print(f"Me he movido a ({ca_x+1}, {ca_y+1})")
+                destino_alcanzado = False
 
             if position_data != self.last_sent_message:
+                print(f"Me he movido a ({ca_x+1}, {ca_y+1})")
                 semaforo.acquire()
                 serialized_position = pickle.dumps(position_data)
                 producer.send('topic_a', serialized_position)
@@ -230,7 +230,7 @@ class Producer(threading.Thread):
 
                 # Liberar el permiso del semáforo
                 semaforo.release()
-            time.sleep(2)
+            time.sleep(1)
             producer.close()
 
 def setCoords(x, y):
@@ -243,22 +243,40 @@ def mov(cd_x, cd_y, x, y):
     global ca_x, ca_y 
     ca_x = x
     ca_y = y
+
+    width = 20
+    height = 20
+
+    # Calcula las distancias en la dirección x y ajusta para la geometría esférica
+    distancia_x = cd_x - ca_x
+    if distancia_x > width / 2:
+        distancia_x -= width
+    elif distancia_x < -width / 2:
+        distancia_x += width
+
+    # Calcula las distancias en la dirección y y ajusta para la geometría esférica
+    distancia_y = cd_y - ca_y
+    if distancia_y > height / 2:
+        distancia_y -= height
+    elif distancia_y < -height / 2:
+        distancia_y += height
+
     if ca_x == cd_x and ca_y == cd_y:
         return 1
     else:
-        distancia_x = cd_x-ca_x
-        distancia_y = cd_y-ca_y
-
+            # Mueve las posiciones de 1 en 1 y ajusta para la geometría esférica
         if distancia_x > 0:
-            ca_x+=1
+            ca_x += 1
         elif distancia_x < 0:
-            ca_x-=1
+            ca_x -= 1
 
         if distancia_y > 0:
             ca_y += 1
         elif distancia_y < 0:
             ca_y -= 1
-        return 0
+        # Asegura que las posiciones estén dentro de los límites del mapa
+        ca_x %= width
+        ca_y %= height
 
 class Consumer(threading.Thread):
     global ID
@@ -285,14 +303,13 @@ class Consumer(threading.Thread):
             consumer_mapa.subscribe(['topic_mapa'])
 
             while not self.stop_event.is_set():
-                print("Estoy consumiendo")
                 for coor_message in consumer_coord:
 
                     datos_coor = coor_message.value
                     for id, (x, y) in datos_coor.items():
-                        print(ID)
                         if ID == int(id):
                             print(f'ID: {id}, Coordenadas:({x}, {y})')
+                            print()
                             time.sleep(2)
                         
                             semaforo.acquire()
@@ -315,7 +332,6 @@ class Consumer(threading.Thread):
                             semaforo.release()
                 if self.stop_event.is_set():
                     break
-                time.sleep(3)
 
         except Exception as e:
             print(f"Error en el consumidor: {e}")
@@ -323,7 +339,6 @@ class Consumer(threading.Thread):
 ########## MAIN ##########
 
 def main(argv = sys.argv):
-    print(len(sys.argv))
     if len(sys.argv) != 7:
         print("Error: El formato debe ser el siguiente: [IP_Engine] [Puerto_Engine] [IP_Broker] [Puerto_Broker] [IP_Registry] [Puerto_Registry]")
         sys.exit(1)
@@ -343,22 +358,27 @@ def main(argv = sys.argv):
             print("1. Registrarse")
             print("2. Empezar representación")
             print("3. Apagarse")
+            print("Opción:", end=" ")
             orden = input()
+            print()
             
             while orden != "1" and orden != "2" and orden != "3":
                 print("Error, indica una de las 3 posibilidades por favor(1, 2 o 3).")
+                print("Opción:", end=" ")
                 orden = input()
+                print()
 
             if orden == "1":
                 if(ID != 0):
                     print("Ya estás registrado!")
+                    print()
                 else:
                     registry()
 
             if orden == "2":
-                print(ID)
                 if(ID == 0):
                     print("No estás registrado!")
+                    print()
                 else:
                     tasks = [Consumer(), Producer()]
 

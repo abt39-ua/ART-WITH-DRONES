@@ -46,7 +46,7 @@ def handle_client(conn, addr):
                 ciudad, valor = obtener_nombre_ciudad(msg)
                 if ciudad != "Ciudad no encontrada" and valor is not None:
                     if valor > 0:
-                        conn.send(f"En la ciudad {ciudad}, se puede actuar, ya que hacen {valor} grados.".encode(FORMAT)) 
+                        conn.send(f"En la ciudad {ciudad} se puede actuar, ya que hacen {valor} grados.".encode(FORMAT)) 
                     else:
                         conn.send(f"CONDICIONES CLIMATICAS ADVERSAS. ESPECTACULO A LA ESPERA O FIINALIZADO. Temperatura: {valor} grados.".encode(FORMAT)) 
                 else:
@@ -122,9 +122,7 @@ def main(argv = sys.argv):
         ad_weather_port = int(sys.argv[1])
         ad_weather_ip = sys.argv[2]
         ADDR = (ad_weather_ip, ad_weather_port)
-        # Crear un socket del servidor y enlazarlo al puerto y dirección.
         server.bind(ADDR)  # Enlaza el socket a la dirección y puerto especificados
-        print(ADDR)
         start()
 
         print("[STARTING] Servidor inicializándose...")

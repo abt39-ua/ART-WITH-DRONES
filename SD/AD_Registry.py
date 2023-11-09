@@ -48,6 +48,7 @@ def handle_client(conn, addr):
             msg = conn.recv(msg_length).decode(FORMAT)
             n = buscar_alias(msg)
             print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
+            print()
             if n == "0":
                 conn.send(f"{ID}".encode(FORMAT))
                 save_info(ID, msg)
@@ -65,8 +66,8 @@ def start():
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Habilita la opción SO_REUSEADDR
         server.listen()
         print(f"[LISTENING] Servidor a la escucha en {ad_registry_ip}")
+        print()
         CONEX_ACTIVAS = threading.active_count()-1
-        print(CONEX_ACTIVAS)
         while True:
             conn, addr = server.accept()
             CONEX_ACTIVAS = threading.active_count()
@@ -74,7 +75,7 @@ def start():
                 thread = threading.Thread(target=handle_client, args=(conn, addr))
                 thread.start()
                 print(f"[CONEXIONES ACTIVAS] {CONEX_ACTIVAS}")
-                print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO", MAX_CONEXIONES-CONEX_ACTIVAS)
+                print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO:", MAX_CONEXIONES-CONEX_ACTIVAS)
             else:
                 conn.close()
                 CONEX_ACTUALES = threading.active_count()-1
@@ -87,6 +88,7 @@ def save_info(ID, alias):
         with open(nom_archivo, 'a') as registro:
             registro.write(f"ID: {ID}, Alias: {alias}\n")
         print("Información guardada con éxito.")
+        print()
     except Exception as e:
         print(f"Error al guardar la información: {str(e)}")
 
@@ -102,7 +104,6 @@ def main(argv = sys.argv):
         ad_registry_port = int(sys.argv[1])
         ad_registry_ip = sys.argv[2]
         ADDR = (ad_registry_ip, ad_registry_port)
-        print(ADDR)
         server.bind(ADDR)
 
         # Verificar la opción de borrar archivo
@@ -114,7 +115,7 @@ def main(argv = sys.argv):
             # Conservar el registro anterior (no borrar archivo)
             pass
         else: 
-            print("Opción borrar incorrecta, debe ser 1 o 0.")
+            print("Opción borrar incorrecta, debe ser 1 ó 0.")
             sys.exit(1)
         print("[STARTING] Servidor inicializándose...")
 
