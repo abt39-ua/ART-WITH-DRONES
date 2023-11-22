@@ -8,6 +8,9 @@ import time
 import threading
 
 ID=0
+alias = ""
+reccibido =  ""
+
 HEADER = 64
 FORMAT = 'utf-8'
 FIN = "FIN"
@@ -35,11 +38,16 @@ def registry(ADDR):
 
     print (f"Establecida conexión en [{ADDR}]")
 
-    print("Realizando solicitud al servidor")
-    send(msg, client)
-    ID = client.recv(2048).decode(FORMAT)
-    print(f"Recibo del Servidor: {ID}")
- 
+    msg=sys.argv[3]
+    while msg != FIN :
+        print("Realizando solicitud al servidor")
+        send(msg)
+        print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
+        msg=input()
+
+    print ("SE ACABO LO QUE SE DABA")
+    print("Envio al servidor: ", FIN)
+    send(FIN)
     client.close()
 
 ######  DRONE   ######

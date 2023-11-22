@@ -90,15 +90,5 @@ def main(argv = sys.argv):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(ADDR)
 
-    print("[STARTING] Servidor inicializándose...")
-
-    #Vaciamos el registro anterior
-    with open(nom_archivo, 'w') as registro:
-        pass
-
-    start()
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
-
-# python3 AD_Registry.py 5051 172.20.53.43
+start()
+nom_archivo.close()
