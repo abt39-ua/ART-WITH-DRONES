@@ -16,6 +16,7 @@ import signal
 import random
 import re
 import json
+import requests
 
 registrados = {}
 mapa = {}
@@ -60,56 +61,36 @@ def send(msg, client):
     client.send(message)
 
 def obtener_nombre_ciudades():
-    global ciudades
+    global ciudad
     try:
-        # Abrimos el archivo en modo lectura
         with open('ciudades.txt', 'r') as archivo:
-            for linea in archivo:
-                # Dividimos la línea en ciudad y grados usando el carácter ':'
-                ciudad, grados = linea.strip().split(':')
-                # Guardamos la ciudad y grados en el diccionario
-                ciudades[ciudad] = grados
+            ciudadesN = [line.strip() for line in archivo]
+            ciudad = random.choice(ciudadesN)
     except FileNotFoundError:
         return "Error: El archivo 'ciudades.txt' no se encuentra.", None
     except Exception as e:
         return f"Error: {e}", None
 
-def getWeather():
-    global ad_weather_ip, ad_weather_port
-    ADDR = (ad_weather_ip, ad_weather_port)
-    
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-   
-    while True:
-        try:
-            client.connect(ADDR)
-            obtener_nombre_ciudades()
-            ciudad_random = random.choice(list(ciudades.keys()))
-            
-            send(ciudad_random, client)
-            temperatura =  client.recv(2048).decode(FORMAT)
-            print(temperatura)
-            print()
+def getTemperatura(ciudad):
+    global temp
+    url = "https://api.openweathermap.org/data/2.5/weather?q={}&appid=274d9ed11cbef3a98393a23a34f79bb7&units=metric".format(ciudad)
+    res = requests.get(url)
+    data = res.json()
 
-            client.close()
-            match = re.search(r'(\-?\d+) grados', temperatura)
-            if match:
-                try:
-                    temperatura = int(match.group(1))
-                    if temperatura >= 0:
-                        return True
-                    else:
-                        return False
-                except ValueError:
-                    print("El servidor no envió una temperatura válida.")
-                    return False
-        except (ConnectionRefusedError, TimeoutError):
-            print("No se pudo establecer conexión con el servidor. Esperando 10 segundos y reintentando...")
-            print("Suponemos que hace un clima adecuado para actuar.")
-            time.sleep(10)
-        except Exception as e:
-            print(f"Error inesperado: {e}")
-            return False
+    temp = data["main"]["temp"]
+
+def getWeather():
+    obtener_nombre_ciudades()
+    ciudad_random = ciudad
+
+    getTemperatura(ciudad)
+    temperatura =  temp
+    print("Ciudad y temperatura:", ciudad, temperatura)
+
+    if temperatura >= 0:
+        return True
+    else:
+        return False
 
 def procesar_archivo_registro():
     global registrados
@@ -430,18 +411,16 @@ class Producer(threading.Thread):
 ########## MAIN ##########
 
 def main(argv = sys.argv):
-    if len(sys.argv) != 8:
+    if len(sys.argv) != 6:
         print("Error: El formato debe ser el siguiente: [Puerto_Engine] [N_Máximo_Drones] [IP_Broker] [Puerto_Broker] [IP_Weather] [Puerto_Weather] [Tiempo_Consulta]")
         sys.exit(1)
     else:
-        global completada, ad_engine_port, MAX_Drones, broker_ip, broker_port, ad_weather_ip, ad_weather_port, t_consulta, mapa
+        global completada, ad_engine_port, MAX_Drones, broker_ip, broker_port, t_consulta, mapa
         ad_engine_port = int(argv[0])
         MAX_Drones = argv[1]
         broker_ip = argv[2]
         broker_port = int(argv[3])
-        ad_weather_ip = argv[4]
-        ad_weather_port = int(argv[5])
-        t_consulta = argv[6]
+        t_consulta = argv[4]
         getFiguras()
         getFigura()
         try:
@@ -471,4 +450,4 @@ if __name__ == "__main__":
     pass
 
 
-    #  python3 AD_Engine.py 5050 20 127.0.0.1 5050 127.0.0.1 5050
+    #  python3 AD_Engine.py 5050 20 127.0.0.1 5050 5
