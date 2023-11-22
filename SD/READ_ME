@@ -1,0 +1,20 @@
+// EN CLASE
+./bin/zookeeper-server-start.sh ./config/zookeeper.properties
+
+#en otro terminal
+./bin/kafka-server-start.sh ./config/server.properties
+
+#en otro terminal crear un topic
+./bin/kafka-topics.sh --create -topic SD --bootstrap-server localhost:9092
+
+#creamos en otro terminal el productor
+./bin/kafka-console-producer.sh --topic SD --bootstrap-server localhost:9092
+
+#creamos en otro terminal el consumidor
+./bin/kafka-console-consumer.sh --topic SD --bootstrap-server localhost:9092 --from-beginning
+
+pip3 install kafka-python
+
+sudo apt-get install openjdk-8-jdk
+sudo apt-get install zookeeper
+sudo systemctl status zookeeper

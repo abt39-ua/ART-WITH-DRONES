@@ -1,5 +1,2 @@
-madrid:20
-paris:15
-berlin:-12
-roma:0
-londres:22
+London
+Alicante

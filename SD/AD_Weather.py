@@ -1,54 +1,133 @@
 import socket
 import argparse
+import threading
 
-# Datos de las ciudades (puedes personalizar esta lista)
-ciudades = {
-    "madrid": "Madrid, España",
-    "paris": "París, Francia",
-    "berlin": "Berlín, Alemania",
-    "roma": "Roma, Italia",
-    "londres": "Londres, Reino Unido",
-}
+HEADER = 64
+PORT = 5050
+SERVER = socket.gethostbyname(socket.gethostname())
+ADDR = (SERVER, PORT)
+FORMAT = 'utf-8'
+FIN = "FIN"
+MAX_CONEXIONES = 200
 
 def obtener_nombre_ciudad(ciudad):
-    return ciudades.get(ciudad.lower(), "Ciudad no encontrada")
+    try:
+        # Abrimos el archivo en modo lectura
+        with open('ciudades.txt', 'r') as archivo:
+            for linea in archivo:
+                ciudad_archivo, valor_str = linea.strip().split(':')
+                if ciudad.lower() == ciudad_archivo.lower():
+                    valor = int(valor_str)
+                    return ciudad_archivo, valor
+            else:
+                return "Ciudad no encontrada", None
+    except FileNotFoundError:
+        return "Error: El archivo 'ciudades.txt' no se encuentra.", None
+    except Exception as e:
+        return f"Error: {e}", None
 
-def main():
-    parser = argparse.ArgumentParser(description="Servidor de Ciudad")
-    parser.add_argument("puerto", type=int, help="Puerto de escucha")
-    args = parser.parse_args()
+def handle_client(conn, addr):
+    try:
+        print(f"[NUEVA CONEXIÓN] {addr} se ha conectado.")  # Muestra un mensaje cuando un cliente se conecta
 
-    host = "127.0.0.1"  # Dirección IP del servidor
+        connected = True
+        while connected:
+            msg_length = conn.recv(HEADER).decode(FORMAT)  # Recibe la longitud del mensaje
+            if msg_length:
+                msg_length = int(msg_length)
+                msg = conn.recv(msg_length).decode(FORMAT)  # Recibe el mensaje completo
+                if msg == FIN:  # Si el cliente envía "FIN", se desconecta
+                    connected = False
+                print(f"El cliente [{addr}] solicita información sobre la ciudad: {msg}")
 
-    # Crear un socket TCP/IP
-    servidor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                # Verificamos si la ciudad solicitada es válida
+                ciudad, valor = obtener_nombre_ciudad(msg)
+                if ciudad != "Ciudad no encontrada" and valor is not None:
+                    if valor > 0:
+                        conn.send(f"En la ciudad {ciudad}, se puede actuar, ya que hacen {valor} grados.".encode(FORMAT)) 
+                    else:
+                        conn.send(f"En la ciudad {ciudad}, NO se puede actuar, ya que hacen {valor} grados.".encode(FORMAT)) 
+                else:
+                    respuesta = "Ciudad no válida"
 
-    # Enlazar el socket al host y puerto especificados
-    servidor_socket.bind((host, args.puerto))
+        print(f"ADIOS. Cliente [{addr}] desconectado.") # Mensaje de despedida al cliente
+        conn.close()  # Cierra la conexión con el cliente
+    except ConnectionResetError:
+        print(f"Error de conexión con el cliente [{addr}].")
+    except socket.error as e:
+        print(f"Error en la comunicación con el cliente [{addr}]: {e}")
+    except ValueError:
+        print(f"Error: No se pudo convertir un valor a entero.")
+    except Exception as e:
+        print(f"Error desconocido con el cliente [{addr}]: {e}")
+    
 
-    # Escuchar conexiones entrantes (máximo 5 conexiones en espera)
-    servidor_socket.listen(5)
+# Función principal para iniciar el servidor
+def start():
+    try:
+        server.listen()  # Empieza a escuchar por conexiones entrantes
+        print(f"[ESCUCHANDO] Servidor a la escucha en {SERVER}")
+        
+        # Obtiene el número de conexiones activas (hilos de clientes)
+        CONEX_ACTIVAS = threading.active_count() - 1
+        print(CONEX_ACTIVAS)
 
-    print(f"Servidor escuchando en {host}:{args.puerto}")
+        while True:
+            conn, addr = server.accept()  # Acepta una nueva conexión entrante
+            CONEX_ACTIVAS = threading.active_count()  # Actualiza el número de conexiones activas
+            
+            if CONEX_ACTIVAS <= MAX_CONEXIONES: 
+                # Si no se ha alcanzado el límite de conexiones activas, crea un nuevo hilo para manejar al cliente
+                thread = threading.Thread(target=handle_client, args=(conn, addr))
+                thread.start()  # Inicia el hilo para el cliente
+                print(f"[CONEXIONES ACTIVAS] {CONEX_ACTIVAS}")
+                print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO", MAX_CONEXIONES - CONEX_ACTIVAS)
+            else:
+                # Si se ha alcanzado el límite, rechaza la conexión y envía un mensaje al cliente
+                print("OOppsss... DEMASIADAS CONEXIONES. ESPERANDO A QUE ALGUIEN SE VAYA")
+                conn.send("OOppsss... DEMASIADAS CONEXIONES. Tendrás que esperar a que alguien se vaya".encode(FORMAT))
+                conn.close()
+                CONEX_ACTUALES = threading.active_count() - 1
+    # 
+    except KeyboardInterrupt:
+        print("Servidor detenido por el usuario.")
 
-    while True:
-        # Aceptar una conexión entrante
-        cliente_socket, cliente_direccion = servidor_socket.accept()
-        print(f"Conexión entrante de {cliente_direccion}")
+    # Si los grados asignados a una ciudad no pueden convertirse en entero
+    except ValueError:
+        print("Error: No se pudo convertir un valor a entero.")
 
-        # Recibir datos del cliente
-        datos = cliente_socket.recv(1024).decode("utf-8").strip()
+    # Si hay problemas en la creación o enlace del socket
+    except socket.error as e:
+        print(f"Error en el socket: {e}")
+    
+    # Cuando se produzca algún error sin especificar anteriormente
+    except Exception as e:
+        print(f"Error desconocido: {e}")
+    finally:
+        server.close()
 
-        if datos:
-            print(f"Peticion recibida: {datos}")
-            ciudad = obtener_nombre_ciudad(datos)
-            respuesta = f"Nombre de la ciudad: {ciudad}"
-            cliente_socket.send(respuesta.encode("utf-8"))
-        else:
-            respuesta = "Peticion vacia"
+# Crear un socket del servidor y enlazarlo al puerto y dirección.
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Crea un socket de tipo TCP/IP
+server.bind(ADDR)  # Enlaza el socket a la dirección y puerto especificados
+#start()
 
-        # Cerrar la conexión con el cliente
-        cliente_socket.close()
+########################33
+import sys
+import requests
+
+def main(argv = sys.argv):
+    global temp
+    ciudad = "London"
+    url = "https://api.openweathermap.org/data/2.5/weather?q={}&appid=274d9ed11cbef3a98393a23a34f79bb7&units=metric".format(ciudad)
+    res = requests.get(url)
+    data = res.json()
+
+    temp = data["main"]["temp"]
+    print(f"{temp}")
+
+
+
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
+    pass
