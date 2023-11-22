@@ -109,5 +109,25 @@ def start():
 # Crear un socket del servidor y enlazarlo al puerto y dirección.
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Crea un socket de tipo TCP/IP
 server.bind(ADDR)  # Enlaza el socket a la dirección y puerto especificados
-start()
+#start()
 
+########################33
+import sys
+import requests
+
+def main(argv = sys.argv):
+    global temp
+    ciudad = "London"
+    url = "https://api.openweathermap.org/data/2.5/weather?q={}&appid=274d9ed11cbef3a98393a23a34f79bb7&units=metric".format(ciudad)
+    res = requests.get(url)
+    data = res.json()
+
+    temp = data["main"]["temp"]
+    print(f"{temp}")
+
+
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+    pass
