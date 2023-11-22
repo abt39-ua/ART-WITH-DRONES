@@ -82,9 +82,9 @@ def getWeather():
     obtener_nombre_ciudades()
     ciudad_random = ciudad
 
-    getTemperatura("London")
+    getTemperatura(ciudad)
     temperatura =  temp
-    print("Recibo del Servidor: ", temperatura)
+    print("Ciudad y temperatura:", ciudad, temperatura)
 
     if temperatura >= 0:
         return True
