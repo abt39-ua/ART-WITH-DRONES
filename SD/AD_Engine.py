@@ -39,6 +39,7 @@ producer_thread = None
 t_consulta = 0
 temp =0
 output_lock = threading.Lock()
+ciudad = ""
 
 def signal_handler(sig, frame):
     # Tareas de limpieza aquí, si es necesario
@@ -58,6 +59,8 @@ def send(msg, client):
     send_length += b' ' * (HEADER - len(send_length))
     client.send(send_length)
     client.send(message)
+
+############  WEATHER   ##################3
 
 def obtener_nombre_ciudades():
     global ciudad
@@ -79,7 +82,8 @@ def getTemperatura(ciudad):
     temp = data["main"]["temp"]
 
 def getWeather():
-    obtener_nombre_ciudades()
+    if ciudad == "":
+        obtener_nombre_ciudades()
     ciudad_random = ciudad
 
     getTemperatura(ciudad)
@@ -90,6 +94,14 @@ def getWeather():
         return True
     else:
         return False
+    
+def consultar_clima():
+    global actuacion
+    while True:
+        actuacion = getWeather()
+        time.sleep(int(t_consulta))
+
+##############  FIGURAS  #####################
 
 def procesar_archivo_registro():
     global registrados
@@ -150,6 +162,7 @@ def getFigura():
     else:
         print("No hay más figuras para procesar.")
 
+##############   MAPA    #######################
 
 # Códigos de escape ANSI para colores de fondo
 FONDO_ROJO = "\033[41m"
@@ -158,7 +171,6 @@ FONDO_CREMA = "\033[48;5;224m"
 RESET = "\033[0m"
 TEXTO_NEGRO = "\033[30m"
 LETRA_GROSOR_NEGRITA = "\033[1m"
-
 
 
 cuadrado = "□"
@@ -266,6 +278,7 @@ def imprimir_mapa_actualizado(mapa, figura):
                         print(cuadrado_formateado, end=" "*longitud_maxima*2) 
         print()  # Nueva línea para la siguiente fila
 
+##############   KAFKA   ######################
 
 class Consumer(threading.Thread):
     global mapa, registrados
@@ -331,11 +344,6 @@ class Consumer(threading.Thread):
             print(f"Error en el consumidor: {e}")
         
 
-def consultar_clima():
-    global actuacion
-    while True:
-        actuacion = getWeather()
-        time.sleep(int(t_consulta))
 
 class Producer(threading.Thread):
     global mapa, registrados, figura, volver_base, t_consulta, actuacion, figuras
