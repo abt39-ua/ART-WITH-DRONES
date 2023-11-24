@@ -40,6 +40,7 @@ producer_thread = None
 t_consulta = 0
 temp =0
 output_lock = threading.Lock()
+ciudad = ""
 
 def signal_handler(sig, frame):
     # Tareas de limpieza aquí, si es necesario
@@ -60,6 +61,8 @@ def send(msg, client):
     client.send(send_length)
     client.send(message)
 
+############  WEATHER   ##################3
+
 def obtener_nombre_ciudades():
     global ciudad
     try:
@@ -70,7 +73,7 @@ def obtener_nombre_ciudades():
         return "Error: El archivo 'ciudades.txt' no se encuentra.", None
     except Exception as e:
         return f"Error: {e}", None
-
+    
 def getTemperatura(ciudad):
     global temp
     url = "https://api.openweathermap.org/data/2.5/weather?q={}&appid=274d9ed11cbef3a98393a23a34f79bb7&units=metric".format(ciudad)
@@ -80,7 +83,8 @@ def getTemperatura(ciudad):
     temp = data["main"]["temp"]
 
 def getWeather():
-    obtener_nombre_ciudades()
+    if ciudad == "":
+        obtener_nombre_ciudades()
     ciudad_random = ciudad
 
     getTemperatura(ciudad)
@@ -91,6 +95,14 @@ def getWeather():
         return True
     else:
         return False
+    
+def consultar_clima():
+    global actuacion
+    while True:
+        actuacion = getWeather()
+        time.sleep(int(t_consulta))
+
+##############  FIGURAS  #####################
 
 def procesar_archivo_registro():
     global registrados
@@ -146,11 +158,12 @@ def getFigura():
             figura[ID] = (x, y)
         # Eliminar la figura procesada del diccionario de figuras
         del figuras[nombre_figura]
-        return 0
+        print("Figura procesada y guardada en figura:")
+        #print(figura)
     else:
-        return 1
         print("No hay más figuras para procesar.")
 
+##############   MAPA    #######################
 
 # Códigos de escape ANSI para colores de fondo
 FONDO_ROJO = "\033[41m"
@@ -159,7 +172,6 @@ FONDO_CREMA = "\033[48;5;224m"
 RESET = "\033[0m"
 TEXTO_NEGRO = "\033[30m"
 LETRA_GROSOR_NEGRITA = "\033[1m"
-
 
 
 cuadrado = "□"
@@ -181,13 +193,11 @@ def imprimir_mapa_actualizado(mapa, figura):
     figura_ajustada = {
         int(i): (x - 1, y - 1) for i, (x, y) in figura.items()
     }
-
-    volver_base = {id: (1, 1) for id in figura.keys()}
     #print(mapa)
     #print(figura_ajustada)
     #print(longitud_maxima)
     # Imprimir línea de números del 1 al 20
-    if mapa == figura_ajustada and figura_ajustada != volver_base:
+    if(mapa == figura_ajustada):
         completada = True
         encabezado = "*********** ART WITH DRONES **********"
         tablero_width = 20 * (longitud_maxima + 3)  # Tamaño total del tablero (20 filas, cada una con longitud_maxima y un espacio)
@@ -268,7 +278,8 @@ def imprimir_mapa_actualizado(mapa, figura):
                         cuadrado_formateado = cuadrado.rjust(longitud_maxima*2)
                         print(cuadrado_formateado, end=" "*longitud_maxima*2) 
         print()  # Nueva línea para la siguiente fila
-    print()
+
+##############   KAFKA   ######################
 
 class Consumer(threading.Thread):
     global mapa, registrados
@@ -286,15 +297,23 @@ class Consumer(threading.Thread):
             id, (x, y) = position_data
         except (TypeError, ValueError):
             print("Datos de posición inválidos recibidos del dron.")
-            return 
+            return # Adquirir el bloqueo antes de realizar actualizaciones en el mapa
+        
+        # Adquirir el Lock antes de modificar drones_positions
+       # drones_positions_lock.acquire()
 
         try:
             mapa[id] = (x, y)
-            if len(mapa) == len(registrados) == len(figura):
-                time.sleep(2)
+            #print(mapa)
+            #print(figura)
+            if len(mapa) == len(registrados) == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
+                time.sleep(1)
                 imprimir_mapa_actualizado(mapa, figura)
         finally:
             pass
+
+        # Liberar el Lock sin importar si ocurre una excepción
+        # drones_positions_lock.release()
 
 
     def run(self):
@@ -311,7 +330,10 @@ class Consumer(threading.Thread):
                         position_data = pickle.loads(message.value)
                         if isinstance(position_data, tuple) and len(position_data) == 2:
                             self.actualizar_mapa(position_data)
-                            time.sleep(3)
+                            print(position_data)
+                            print(len(mapa))
+                            print(len(registrados))
+                            print(len(figura))
                         else:
                             print("Datos inválidos recibidos del dron.")
                     except Exception as e:
@@ -323,14 +345,9 @@ class Consumer(threading.Thread):
             print(f"Error en el consumidor: {e}")
         
 
-def consultar_clima():
-    global actuacion
-    while True:
-        actuacion = getWeather()
-        time.sleep(int(t_consulta))
 
 class Producer(threading.Thread):
-    global mapa, registrados, figura, volver_base, t_consulta, actuacion, figuras, volver_base
+    global mapa, registrados, figura, volver_base, t_consulta, actuacion, figuras
     def __init__(self):
         threading.Thread.__init__(self)
         self.broker_address = f"{broker_ip}:{broker_port}"
@@ -343,13 +360,9 @@ class Producer(threading.Thread):
         #print(drones_positions)
         
         global completada
-        datos_a_enviar = {
-            "mapa": mapa,
-            "figura": figura
-        }
         # Enviar coordenadas de la figura actual
         producer_coor.send('topic_coord', pickle.dumps(drones_positions))
-        producer_mapa.send('topic_mapa', pickle.dumps(datos_a_enviar))
+        producer_mapa.send('topic_mapa', pickle.dumps(mapa))
         
         # Esperar a que los drones completen la figura actual
         time.sleep(5)  # Esperar 5 segundos
@@ -359,70 +372,73 @@ class Producer(threading.Thread):
 
     def verificar_completitud(self, mapa, coordenadas_figura):
         global completada
-
+        #print(mapa)
         figura_ajustada = {
             int(i): (x - 1, y - 1) for i, (x, y) in coordenadas_figura.items()
         }
-        volver_base = {id: (1, 1) for id in figura.keys()}
-
-        if all(key in mapa and mapa[key] == value for key, value in figura_ajustada.items()) and actuacion != False and mapa != volver_base:
+        #print(figura_ajustada)
+        print(completada)
+        if all(key in mapa and mapa[key] == value for key, value in figura_ajustada.items()):
             return True
         else:
             return False
 
     def run(self):
         global completada
-        n = 0
         # Inicia un hilo para consultar el clima cada t_consulta segundos
         thread_consulta = threading.Thread(target=consultar_clima)
         thread_consulta.start()
+        print(t_consulta)
+        getFiguras()
+        getFigura()
+        #print(figura)
+        #print(len(figura))
         volver_base = {id: (1, 1) for id in figura.keys()}
         while len(registrados) < len(figura):
             time.sleep(1)
             procesar_archivo_registro()
         while not self.stop_event.is_set():
-
-            volver_base_ajustado = {
-                int(i): (x - 1, y - 1) for i, (x, y) in volver_base.items()
-            }
+            print("hola")
+            if(completada == True):
+                getFigura()
+                print("segunda figura:")
+                #print(figura)
+                #print(mapa)
             while(mapa != figura):
-                if len(mapa) == len(figura) and len(registrados) >= len(figura):
-                    producer_coor = KafkaProducer(bootstrap_servers=self.broker_address)
-                    producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
+                if len(mapa) == len(registrados) == len(figura):
                     if(actuacion == True):
+                        producer_coor = KafkaProducer(bootstrap_servers=self.broker_address )
+                        producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
                         self.enviar_coordenadas_figura(figura, producer_coor, producer_mapa)
+
                     else:
                         self.enviar_coordenadas_figura(volver_base,producer_coor, producer_mapa)
+                        
                 else:
                     pass
-                if actuacion == True and completada == True and mapa != volver_base_ajustado:
-                    time.sleep(5)
-                    n = getFigura()
-                    if(n == 0):
-                        print("Procesando siguiente figura...")
-                        print("Mostrando figura:")
-                        print()
-                    else: 
-                        print("No hay más figuras para procesar:")
-                        while(True):
-                            self.enviar_coordenadas_figura(volver_base,producer_coor, producer_mapa)
+                if(completada == True):
+                    "saliendoooo"
+                    break
+            # Llama a la función getWeather cada t_consulta segundos
                 
 
 ########## MAIN ##########
 
 def main(argv = sys.argv):
+    print(len(sys.argv))
     if len(sys.argv) != 6:
         print("Error: El formato debe ser el siguiente: [Puerto_Engine] [N_Máximo_Drones] [IP_Broker] [Puerto_Broker] [IP_Weather] [Puerto_Weather] [Tiempo_Consulta]")
         sys.exit(1)
     else:
-        global completada, ad_engine_port, MAX_Drones, broker_ip, broker_port, t_consulta, mapa
+        global completada, ad_engine_port, MAX_Drones, broker_ip, broker_port, ad_weather_ip, ad_weather_port, t_consulta, mapa
         ad_engine_port = int(argv[0])
         MAX_Drones = argv[1]
         broker_ip = argv[2]
         broker_port = int(argv[3])
         t_consulta = argv[4]
-        getFiguras()
-        getFigura()
+
+        tam = len(argv)
+        print(tam)
         try:
 
             ###  KAFKA  ###
