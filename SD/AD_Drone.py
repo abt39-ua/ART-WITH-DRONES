@@ -7,6 +7,7 @@ import pickle
 import time
 import threading
 import signal
+import ssl
 
 ID=0
 alias = ""
@@ -31,8 +32,7 @@ semaforo = threading.Semaphore(value=1)
 def handle_interrupt(signum, frame):
     global ID
     print(f"Cerrando conexión...")
-    client.close()
-    producer.close()
+
     sys.exit(0)
 
 # Manejar la señal SIGINT (CTRL+C)
@@ -46,7 +46,7 @@ def send(msg, client):
     client.send(send_length)
     client.send(message)
     
-def registry():
+def registryS():
     global ID
     alias=input("Introduce tu alias: ")
     ADDR = (ad_registry_ip, ad_registry_port)  
@@ -68,7 +68,18 @@ def registry():
     #else:
     #    print ("Oops!. Parece que algo falló. Necesito estos argumentos: <ServerIP> <Puerto> <Alias deseado>")
 
-#####        
+###########   API_REST   ############
+
+context = ssl._create_unverified_context()
+
+def registryAPI():
+    with socket.create_connection((ad_registry_ip, ad_registry_port)) as sock:
+        with context.wrap_socket(sock, server_hostname=ad_registry_ip) as ssock:
+            print("Establecida conexión en:", ssock.getpeername())
+            ssock.send(b'Holap')
+            data = ssock.recev(1024)
+            print('Recibo: ', repr(data))
+
 
 # RETORNAR A LA CASILLA INICIAL
 def volver():
@@ -188,8 +199,8 @@ class Consumer(threading.Thread):
 
 def main(argv = sys.argv):
     print(len(sys.argv))
-    if len(sys.argv) != 7:
-        print("Error: El formato debe ser el siguiente: [IP_Engine] [Puerto_Engine] [IP_Broker] [Puerto_Broker] [IP_Registry] [Puerto_Registry]")
+    if len(sys.argv) != 8:
+        print("Error: El formato debe ser el siguiente: [IP_Engine] [Puerto_Engine] [IP_Broker] [Puerto_Broker] [IP_Registry] [Puerto_Registry] [ID si ya registrado]")
         sys.exit(1)
     else:  
         global ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port, ID
@@ -200,13 +211,15 @@ def main(argv = sys.argv):
         broker_port = int(sys.argv[4])
         ad_registry_ip = sys.argv[5]
         ad_registry_port = int(sys.argv[6])
+        ID = int(sys.argv[7])
         orden = ""
-        while(orden != "3"):
+        while(orden != "4"):            
             
             print("¿Qué deseas hacer?")
             print("1. Registrarse")
-            print("2. Empezar representación")
-            print("3. Apagarse")
+            print("2. Registrarse")
+            print("3. Empezar representación")
+            print("4. Apagarse")
             orden = input()
             
             while orden != "1" and orden != "2" and orden != "3":
@@ -217,9 +230,15 @@ def main(argv = sys.argv):
                 if(ID != 0):
                     print("Ya estás registrado!")
                 else:
-                    registry()
+                    registryS()
 
             if orden == "2":
+                if(ID != 0):
+                    print("Ya estás registrado!")
+                else:
+                    registryAPI()
+
+            if orden == "3":
                 print(ID)
                 if(ID == 0):
                     print("No estás registrado!")
@@ -232,8 +251,10 @@ def main(argv = sys.argv):
                     while True:
                         time.sleep(1)
 
-            if orden == "3":
+            if orden == "4":
                 sys.exit()
 
 if __name__ == "__main__":
   main(sys.argv[1:])
+
+# python3 AD_Drone.py 127.0.0.1 5050 127.0.0.1 29092 127.0.0.1 5051 0

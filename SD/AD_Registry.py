@@ -1,4 +1,4 @@
-import socket 
+import socket, ssl
 import threading
 import os
 import signal
@@ -36,6 +36,36 @@ def signal_handler(sig, frame):
 # Asigna el manejador de señales
 signal.signal(signal.SIGINT, signal_handler)
 
+#############   API_REST   ###########
+cert = 'certServ.pem'
+
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain(cert, cert)
+
+bindsocket = socket.socket()
+bindsocket.bind((bytearray(ad_registry_ip), ad_registry_port))
+bindsocket.listen(5)
+
+def dea_with_client(connstream):
+    data = connstream.recv(1024)
+    print('Recibido', repr(data))
+    print("Enviando info")
+    connstream.send(b'Info uwu')
+
+def connect_API():
+    print('Escuchando en:', ad_registry_ip, ad_registry_port)
+
+    while True:
+        newsocket, fromaddr = bindsocket.accept()
+        connstream = context.wrap_socket(newsocket, server_side=True)
+        print('Conexion recibida')
+        try:
+            dea_with_client(connstream)
+        finally:
+            connstream.shutdown(socket.SHUT_RDWR)
+            connstream.close() 
+
+#############   SOCKETS   ############
 
 def handle_client(conn, addr):
     global ID
@@ -94,7 +124,6 @@ def save_info(ID, alias):
 
 ######################### MAIN ##########################
 
-
 def main(argv = sys.argv):
     global ad_registry_port, ad_registry_ip, server, ADDR
     if len(sys.argv) != 4:
@@ -123,3 +152,5 @@ def main(argv = sys.argv):
 
 if __name__ == "__main__":
   main(sys.argv[1:])
+
+# python3 AD_Registry.py 5051 127.0.0.1 0 
