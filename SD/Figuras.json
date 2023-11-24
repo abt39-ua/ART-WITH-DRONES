@@ -1,28 +1,36 @@
 {
     "figuras": [
         {
-            "Nombre": "Triangulo",
+            "Nombre": "Letra I",
             "Drones": [
                 {
                     "ID": 1,
-                    "POS": "3,5"
+                    "POS": "1,4"
                 },
                 {
                     "ID": 2,
-                    "POS": "3,6"
+                    "POS": "3,4"
+                },
+                {
+                    "ID": 3,
+                    "POS": "4,4"
                 }
             ]
         },
         {
-            "Nombre": "Cuadrado",
+            "Nombre": "Escalera",
             "Drones": [
                 {
                     "ID": 1,
-                    "POS": "9,11"
+                    "POS": "18,15"
                 },
                 {
                     "ID": 2,
-                    "POS": "10,11"
+                    "POS": "17,16"
+                },
+                {
+                    "ID": 3,
+                    "POS": "16,17"
                 }
             ]
         }
