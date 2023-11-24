@@ -109,6 +109,7 @@ def start():
     finally:
         server.close()
 
+<<<<<<< HEAD:SD/AD_Weather.py
 
 
 #####main####
@@ -129,3 +130,30 @@ def main(argv = sys.argv):
 
 if __name__ == "__main__":
   main(sys.argv[1:])
+=======
+# Crear un socket del servidor y enlazarlo al puerto y dirección.
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Crea un socket de tipo TCP/IP
+server.bind(ADDR)  # Enlaza el socket a la dirección y puerto especificados
+#start()
+
+########################33
+import sys
+import requests
+
+def main(argv = sys.argv):
+    global temp
+    ciudad = "London"
+    url = "https://api.openweathermap.org/data/2.5/weather?q={}&appid=274d9ed11cbef3a98393a23a34f79bb7&units=metric".format(ciudad)
+    res = requests.get(url)
+    data = res.json()
+
+    temp = data["main"]["temp"]
+    print(f"{temp}")
+
+
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+    pass
+>>>>>>> 0b1fc5c80fef3de0e5f65a416f7af50fa9e816d7:AD_Weather.py

@@ -71,6 +71,7 @@ def registry():
     except Exception as e:
         print(f"Error: {e}")
 
+<<<<<<< HEAD
     finally:
         if 'client' in locals():
             client.close()
@@ -82,6 +83,15 @@ FONDO_CREMA = "\033[48;5;224m"
 RESET = "\033[0m"
 TEXTO_NEGRO = "\033[30m"
 LETRA_GROSOR_NEGRITA = "\033[1m"
+=======
+        #msg=sys.argv[3]
+    print("Realizando solicitud al servidor")
+    send(alias, client)
+    ID = client.recv(2048).decode(FORMAT)
+    #print("Recibo del Servidor: ", client.recv(2048).decode(FORMAT))
+    print(f"Recibo del Servidor: {ID}")
+    #ID = client.recv(2048).decode(FORMAT)
+>>>>>>> 0b1fc5c80fef3de0e5f65a416f7af50fa9e816d7
 
 
 
