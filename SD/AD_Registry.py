@@ -14,6 +14,7 @@ FORMAT = 'utf-8'
 FIN = "FIN"
 MAX_CONEXIONES = 100
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+semanforo = threading.Semaphore(value=1)
 
 def buscar_alias(alias):
     with open("registro.txt", 'r') as file:
@@ -46,9 +47,10 @@ bindsocket = socket.socket()
 bindsocket.bind((bytearray(ad_registry_ip), ad_registry_port))
 bindsocket.listen(5)
 
-def dea_with_client(connstream):
-    data = connstream.recv(1024)
-    print('Recibido', repr(data))
+def deal_with_client(connstream):
+    msg_length = connstream.recv(1024)#.decode(FORMAT)
+    #data = connstream.recv(int(msg_length)).decode(FORMAT)
+    print('Recibido', repr(msg_length))
     print("Enviando info")
     connstream.send(b'Info uwu')
 
@@ -60,10 +62,22 @@ def connect_API():
         connstream = context.wrap_socket(newsocket, server_side=True)
         print('Conexion recibida')
         try:
-            dea_with_client(connstream)
+            deal_with_client(connstream)
+        finally:
+            connstream.shutdown(socket.SHUT_RDWR)
+            connstream.close()
+
+""""
+    while True:
+        newsocket, fromaddr = bindsocket.accept()
+        connstream = context.wrap_socket(newsocket, server_side=True)
+        print('Conexion recibida')
+        try:
+            deal_with_client(connstream)
         finally:
             connstream.shutdown(socket.SHUT_RDWR)
             connstream.close() 
+            """
 
 #############   SOCKETS   ############
 
@@ -73,12 +87,16 @@ def handle_client(conn, addr):
     connected = True
     while connected:
         msg_length = conn.recv(HEADER).decode(FORMAT)
+        print("A", msg_length, "Z")
         if msg_length:
-            msg_length = int(msg_length)
-            msg = conn.recv(msg_length).decode(FORMAT)
+            #msg_length = int(msg_length)
+            print(msg_length)
+            #msg = msg_length#conn.recv(msg_length).decode(FORMAT)
+            msg = conn.recv(HEADER).decode(FORMAT)
+            print(msg)
             n = buscar_alias(msg)
             print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
-            print()
+            print(ID)
             if n == "0":
                 conn.send(f"{ID}".encode(FORMAT))
                 save_info(ID, msg)
@@ -89,6 +107,12 @@ def handle_client(conn, addr):
 
     conn.close()
 
+def is_utf8(data):
+    try:
+        data.decode('utf-8')
+        return True
+    except UnicodeDecodeError:
+        return False
 
 def start():
     global server, ad_registry_ip
@@ -98,17 +122,28 @@ def start():
         print(f"[LISTENING] Servidor a la escucha en {ad_registry_ip}")
         print()
         CONEX_ACTIVAS = threading.active_count()-1
+
         while True:
             conn, addr = server.accept()
             CONEX_ACTIVAS = threading.active_count()
-            if (CONEX_ACTIVAS <= MAX_CONEXIONES): 
-                thread = threading.Thread(target=handle_client, args=(conn, addr))
-                thread.start()
-                print(f"[CONEXIONES ACTIVAS] {CONEX_ACTIVAS}")
-                print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO:", MAX_CONEXIONES-CONEX_ACTIVAS)
-            else:
-                conn.close()
-                CONEX_ACTUALES = threading.active_count()-1
+
+            semanforo.acquire()
+            try:
+                if is_utf8(conn.recv(HEADER)) == False:
+                    thread = threading.Thread(target=connect_API)
+                    thread.start()
+                    print("a")
+                else:
+                    thread = threading.Thread(target=handle_client, args=(conn, addr))
+                    thread.start()
+                    print("b")
+            finally:
+                semanforo.release()
+
+            print(f"[CONEXIONES ACTIVAS] {CONEX_ACTIVAS}")
+            print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO:", MAX_CONEXIONES-CONEX_ACTIVAS)
+            conn.close()
+            CONEX_ACTUALES = threading.active_count()-1
     except Exception as e:
         print(f"Error al iniciar el servidor: {str(e)}")
 
@@ -148,7 +183,11 @@ def main(argv = sys.argv):
             sys.exit(1)
         print("[STARTING] Servidor inicializándose...")
 
-        start()
+        api_thread = threading.Thread(target=connect_API)
+        api_thread.start()
+
+        socket_thread = threading.Thread(target=start)
+        socket_thread.start()
 
 if __name__ == "__main__":
   main(sys.argv[1:])

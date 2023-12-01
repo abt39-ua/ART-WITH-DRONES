@@ -74,10 +74,11 @@ context = ssl._create_unverified_context()
 
 def registryAPI():
     with socket.create_connection((ad_registry_ip, ad_registry_port)) as sock:
+        #with ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_TLS_SERVER) as ssock:
         with context.wrap_socket(sock, server_hostname=ad_registry_ip) as ssock:
             print("Establecida conexión en:", ssock.getpeername())
             ssock.send(b'Holap')
-            data = ssock.recev(1024)
+            data = ssock.recv(1024)#.decode(FORMAT)
             print('Recibo: ', repr(data))
 
 
@@ -213,16 +214,16 @@ def main(argv = sys.argv):
         ad_registry_port = int(sys.argv[6])
         ID = int(sys.argv[7])
         orden = ""
-        while(orden != "4"):            
-            
+
+        while(orden != "4"):                
             print("¿Qué deseas hacer?")
-            print("1. Registrarse")
-            print("2. Registrarse")
+            print("1. Registrarse por Sockets")
+            print("2. Registrarse con API")
             print("3. Empezar representación")
             print("4. Apagarse")
             orden = input()
             
-            while orden != "1" and orden != "2" and orden != "3":
+            while orden != "1" and orden != "2" and orden != "3" and orden != "4":
                 print("Error, indica una de las 3 posibilidades por favor(1, 2 o 3).")
                 orden = input()
 
