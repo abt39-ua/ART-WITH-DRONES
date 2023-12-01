@@ -1,9 +1,3 @@
-#-Conexión con weather
-#-conexión con el fichero de dibujo y obtención num de drones
-#-comprobar num drones en registro.txt
-#-enviar cada pos requerida a cada dron
-#-expresion del mapa a cada mov de dron
-
 import socket
 import sys
 import threading
@@ -17,8 +11,9 @@ import random
 import re
 import json
 import requests
+from pymongo import MongoClient, server_api
 
-registrados = {}
+registrados = 0
 mapa = {}
 HEADER = 64
 FORMAT = 'utf-8'
@@ -28,6 +23,7 @@ broker_ip = ""
 broker_port = 0
 ad_weather_ip = ""
 ad_weather_port = 0
+ciudades = {}
 figura = {}
 figuras = {}
 volver_base = {}
@@ -40,6 +36,33 @@ t_consulta = 0
 temp =0
 output_lock = threading.Lock()
 ciudad = ""
+
+# Conexión a MongoDB con una versión específica de la API del servidor
+uri = "mongodb://localhost:27018"
+api_version = server_api.ServerApi('1', strict=True, deprecation_errors=True)
+client = MongoClient(uri, server_api=api_version)
+dbName = 'SD'
+colletionName = 'drones'
+
+# Conexión a MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+# Conectar al servidor de MongoDB
+client.admin.command('ismaster')
+
+# Obtener la base de datos
+db = client['SD']
+
+# Obtener la colección
+collection = db['drones']
+
+def conectar_db():
+    # Conectar a la instancia de MongoDB
+    client = MongoClient('localhost', 27018)  # Asegúrate de cambiar el puerto si es diferente
+    # Seleccionar la base de datos "SD"
+    db = client['SD']
+    # Seleccionar la colección "drones"
+    collection = db['drones']
+    return collection
 
 def signal_handler(sig, frame):
     # Tareas de limpieza aquí, si es necesario
@@ -103,24 +126,21 @@ def consultar_clima():
 
 ##############  FIGURAS  #####################
 
-def procesar_archivo_registro():
+def obtener_registrados_desde_db():
+    collection = conectar_db()
+    return collection.count_documents({})
+
+def procesar_registrados():
     global registrados
-    try:
-        # Abrimos el archivo en modo lectura
-        with open('registro.txt', 'r') as archivo:
-            for linea in archivo:
-                # Eliminamos los caracteres especiales y dividimos la línea en partes
-                partes = linea.strip().split(',')
-                # Verificamos si hay suficientes partes en la línea
-                if len(partes) == 2:
-                    ID, alias = partes
-                    # Almacenamos el drone en el diccionario
-                    registrados[ID] = alias
-                        
-    except FileNotFoundError:
-        return "Error: No hay drones registrados.", None
-    except Exception as e:
-        return f"Error: {e}", None
+    while True:
+        registrados_db = obtener_registrados_desde_db()
+        if registrados_db >= len(figura):
+            registrados = registrados_db
+            print("Todos los drones están registrados.")
+            break
+        else:
+            print("Esperando a que todos los drones se registren...")
+            time.sleep(1)
 
 def getFiguras():
     global figuras
@@ -305,7 +325,7 @@ class Consumer(threading.Thread):
             mapa[id] = (x, y)
             #print(mapa)
             #print(figura)
-            if len(mapa) == len(registrados) == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
+            if len(mapa) == registrados == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
                 time.sleep(1)
                 imprimir_mapa_actualizado(mapa, figura)
         finally:
@@ -331,7 +351,7 @@ class Consumer(threading.Thread):
                             self.actualizar_mapa(position_data)
                             print(position_data)
                             print(len(mapa))
-                            print(len(registrados))
+                            print(registrados)
                             print(len(figura))
                         else:
                             print("Datos inválidos recibidos del dron.")
@@ -393,9 +413,9 @@ class Producer(threading.Thread):
         #print(figura)
         #print(len(figura))
         volver_base = {id: (1, 1) for id in figura.keys()}
-        while len(registrados) < len(figura):
+        while registrados < len(figura):
             time.sleep(1)
-            procesar_archivo_registro()
+            procesar_registrados()
         while not self.stop_event.is_set():
             print("hola")
             if(completada == True):
@@ -404,7 +424,7 @@ class Producer(threading.Thread):
                 #print(figura)
                 #print(mapa)
             while(mapa != figura):
-                if len(mapa) == len(registrados) == len(figura):
+                if len(mapa) == registrados == len(figura):
                     if(actuacion == True):
                         producer_coor = KafkaProducer(bootstrap_servers=self.broker_address )
                         producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
@@ -438,6 +458,7 @@ def main(argv = sys.argv):
 
         tam = len(argv)
         print(tam)
+
         try:
 
             ###  KAFKA  ###
@@ -449,7 +470,6 @@ def main(argv = sys.argv):
             for t in tasks:
                 t.start()
 
-        
             while True:
 
                 time.sleep(1)
