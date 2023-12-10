@@ -7,6 +7,8 @@ import pickle
 import time
 import threading
 import signal
+import socket
+import ssl
 
 ID=0
 alias = ""
@@ -29,6 +31,29 @@ destino_alcanzado = False
 
 semaforo = threading.Semaphore(value=1)
 
+#######   API   ############
+def registryAPl():
+    context = ssl._create_unverified_context()
+    global ID
+    alias=input("Introduce tu alias: ")
+        
+    try:
+        with socket.create_connection((ad_registry_ip, ad_registry_port)) as sock:
+            with context.wrap_socket(sock, server_hostname=ad_registry_ip) as ssock: 
+                print("Realizando solicitud al servidor")
+                ssock.send(b'alias')
+                data = ssock.recv(1024)
+                ID = int(repr(data))
+                print(f"Recibo del Servidor: {ID}")
+
+    except (ConnectionRefusedError, TimeoutError):
+        print("No ha sido posible establecer conexión con el servidor de registro, inténtelo de nuevo.")
+    
+    except Exception as e:
+        print(f"Error: {e}")
+
+########   SOCKETS   ###########
+
 def handle_interrupt(signum, frame):
     global ID
     print(f"Cerrando conexión...")
@@ -45,7 +70,7 @@ def send(msg, client):
     client.send(send_length)
     client.send(message)
     
-def registry():
+def registryS():
     global ID
     alias=input("Introduce tu alias: ")
     ADDR = (ad_registry_ip, ad_registry_port)  
@@ -277,6 +302,8 @@ def mov(cd_x, cd_y, x, y):
         # Asegura que las posiciones estén dentro de los límites del mapa
         ca_x %= width
         ca_y %= height
+def registryAPI():
+    registryS()
 
 class Consumer(threading.Thread):
     global ID
@@ -355,15 +382,16 @@ def main(argv = sys.argv):
         while(orden != "3"):
             
             print("¿Qué deseas hacer?")
-            print("1. Registrarse")
-            print("2. Empezar representación")
-            print("3. Apagarse")
+            print("1. Registrarse con Sockets")
+            print("2. Registrarse con API")
+            print("3. Empezar representación")
+            print("4. Apagarse")
             print("Opción:", end=" ")
             orden = input()
             print()
             
-            while orden != "1" and orden != "2" and orden != "3":
-                print("Error, indica una de las 3 posibilidades por favor(1, 2 o 3).")
+            while orden != "1" and orden != "2" and orden != "3" and orden != "4":
+                print("Error, indica una de las 3 posibilidades por favor(1, 2, 3 o 4).")
                 print("Opción:", end=" ")
                 orden = input()
                 print()
@@ -373,9 +401,16 @@ def main(argv = sys.argv):
                     print("Ya estás registrado!")
                     print()
                 else:
-                    registry()
+                    registryS()
 
             if orden == "2":
+                if(ID != 0):
+                    print("Ya estás registrado!")
+                    print()
+                else:
+                    registryAPI()                    
+
+            if orden == "3":
                 if(ID == 0):
                     print("No estás registrado!")
                     print()
@@ -388,7 +423,7 @@ def main(argv = sys.argv):
                     while True:
                         time.sleep(1)
 
-            if orden == "3":
+            if orden == "4":
                 sys.exit()
 
 if __name__ == "__main__":

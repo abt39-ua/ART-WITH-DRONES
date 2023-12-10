@@ -4,6 +4,7 @@ import os
 import signal
 import sys
 from pymongo import MongoClient, server_api
+import socket, ssl
 
 ID = 1
 HEADER = 64
@@ -15,7 +16,7 @@ FIN = "FIN"
 MAX_CONEXIONES = 100
 opcion_borrar = -1
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+"""
 # Conexión a MongoDB con una versión específica de la API del servidor
 uri = "mongodb://localhost:27018"
 api_version = server_api.ServerApi('1', strict=True, deprecation_errors=True)
@@ -52,6 +53,41 @@ def buscar_alias(alias):
         return document["_id"]
     else:
         return "0"
+    """
+#######   API   #########
+def API_connect():
+    cert = 'certServ.pem'
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(cert, cert)
+
+    bindsocket = socket.socket()
+    bindsocket.bind(("127.0.0.1", ad_registry_port))
+    bindsocket.listen(5)
+
+    def deal_with_client(connstream):
+        data = connstream.recv(1024)
+        # empty data means the client is finished with us    
+        print('Recibido ', repr(data))
+        #data = connstream.recv(1024)
+        print("Enviando ADIOS")      
+        connstream.send(b'ADIOS')
+        
+    print('Escuchando en',ad_registry_ip, ad_registry_port)
+    conected = True
+    while conected:
+        newsocket, fromaddr = bindsocket.accept()
+        connstream = context.wrap_socket(newsocket, server_side=True)
+        print('Conexion recibida')
+        try:
+            deal_with_client(connstream)
+        finally:
+            connstream.shutdown(socket.SHUT_RDWR)
+            connstream.close()
+            conected = False
+
+
+#######   SOCKETS   #########
+
 
 def signal_handler(sig, frame):
     global server
@@ -65,7 +101,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def handle_client(conn, addr):
-    global ID
+    global ID, msg_length
     print(f"[NUEVA CONEXION] {addr} connected.")
     connected = True
     while connected:
@@ -73,13 +109,15 @@ def handle_client(conn, addr):
         if msg_length:
             msg_length = int(msg_length)
             msg = conn.recv(msg_length).decode(FORMAT)
-            n = buscar_alias(msg)
+ 
+            #n = buscar_alias(msg)
+            n = "0"
             print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
             print()
-            print(n)
+
             if n == "0":
                 conn.send(f"{ID}".encode(FORMAT))
-                save_info(ID, msg)
+                #save_info(ID, msg)
                 ID += 1
 
             else:
@@ -89,7 +127,7 @@ def handle_client(conn, addr):
 
 
 def start():
-    global server, ad_registry_ip
+    global server, ad_registry_ip, msg_length
     try:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Habilita la opción SO_REUSEADDR
         server.listen()
@@ -177,7 +215,7 @@ def main(argv = sys.argv):
         # Verificar la opción de borrar archivo
         opcion_borrar = int(sys.argv[3])
         if opcion_borrar == 0:
-            borrar_registros_db()
+            #borrar_registros_db()
             print("Registros en la base de datos eliminados.")
         elif opcion_borrar == 1:
             collection = conectar_db()

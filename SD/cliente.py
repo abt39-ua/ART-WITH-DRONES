@@ -1,7 +1,7 @@
 import socket
 import ssl
 
-hostname = 'localhost'
+hostname = '127.0.0.1'
 port = 8443
 
 # Se crea el contexto para el cliente indicándole que confie en certificados autofirmados

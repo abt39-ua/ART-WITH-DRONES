@@ -1,6 +1,6 @@
 import socket, ssl
 
-hostname = 'localhost'
+hostname = "127.0.0.1"
 port = 8443
 cert = 'certServ.pem'
 
@@ -15,8 +15,6 @@ context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 #context.load_cert_chain(certfile="mycertfile", keyfile="mykeyfile")
 context.load_cert_chain(cert, cert)
 
-
-
 bindsocket = socket.socket()
 bindsocket.bind((hostname, port))
 bindsocket.listen(5)
@@ -30,11 +28,10 @@ def deal_with_client(connstream):
     print("Enviando ADIOS")      
     connstream.send(b'ADIOS')
     
-
-
 print('Escuchando en',hostname, port)
 
-while True:
+conected = True
+while conected:
     newsocket, fromaddr = bindsocket.accept()
     connstream = context.wrap_socket(newsocket, server_side=True)
     print('Conexion recibida')
@@ -43,4 +40,5 @@ while True:
     finally:
         connstream.shutdown(socket.SHUT_RDWR)
         connstream.close()
+        conected = False
 
