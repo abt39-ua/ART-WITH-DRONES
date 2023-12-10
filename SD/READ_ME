@@ -14,7 +14,11 @@
 ./bin/kafka-console-consumer.sh --topic SD --bootstrap-server localhost:9092 --from-beginning
 
 pip3 install kafka-python
+pip3 install pymongo
 
 sudo apt-get install openjdk-8-jdk
 sudo apt-get install zookeeper
 sudo systemctl status zookeeper
+
+docker run -d --name mongo -p 27018:27017 mongo:latest
+docker ps -a
