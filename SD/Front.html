@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estado del Mapa</title>
-    <!-- Enlace a tu hoja de estilos CSS si tienes una -->
+    <!-- Enlace a tu hoja de estilos CSS -->
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,7 +16,15 @@
     <!-- Contenido principal -->
     <main>
         <!-- Mapa interactivo (puedes reemplazar esto con tu implementación específica) -->
-        <div id="map"></div>
+        <div id="map">
+            <!-- Celdas generadas dinámicamente -->
+            <!-- Modifica este bloque para agregar las celdas -->
+            <!-- Puedes usar JavaScript para generarlas dinámicamente -->
+            <!-- Aquí se muestra un ejemplo estático para un tablero vacío -->
+            <!-- Repite el patrón según el tamaño del tablero -->
+            <!-- Asegúrate de ajustar según tus necesidades -->
+            <!-- Fin del ejemplo -->
+        </div>
 
         <!-- Información relacionada con los drones -->
         <div id="drone-info">
@@ -32,7 +40,127 @@
         <p>&copy; 2023 Estado del Mapa</p>
     </footer>
 
-    <!-- Scripts JavaScript (si es necesario) -->
-    <script src="main.js"></script>
+    <script>
+        // Selecciona el elemento con el id 'map'
+        const mapElement = document.getElementById('map');
+    
+        // Crea una fila adicional para mostrar solo las etiquetas de las columnas
+        const columnHeader = document.createElement('div');
+        columnHeader.className = 'row header-row';
+        
+        // Bucle para las filas (se agrega una fila adicional)
+        for (let j = 0; j < 21; j++) {
+            const cellElement = document.createElement('div');
+    
+            if (j === 0){
+                // Muestra un hueco para j igual a 0
+                cellElement.className = 'cell row-header empty';
+                cellElement.innerText = " ";
+            }
+            else{
+                cellElement.className = 'cell row-header';
+                cellElement.innerText = `${j}`;
+            }
+
+
+            columnHeader.appendChild(cellElement);
+        }
+
+        // Agrega la fila de etiquetas de columna al mapa (se agrega una fila adicional)
+        mapElement.appendChild(columnHeader);
+        
+        // Bucle externo para las filas
+        for (let i = 0; i < 20; i++) {
+            // Crea un nuevo elemento div para representar la fila
+            const rowElement = document.createElement('div');
+            rowElement.className = 'row'; // Asigna la clase 'row'
+    
+            // Crea una celda para la etiqueta de la fila
+            const rowHeader = document.createElement('div');
+            rowHeader.className = 'cell header-cell row-header';
+            rowHeader.innerText = `${i + 1}`;
+    
+            // Agrega la celda de etiqueta de fila a la fila
+            rowElement.appendChild(rowHeader);
+    
+            // Bucle interno para las columnas
+            for (let j = 0; j < 20; j++) {
+                // Crea un nuevo elemento div para representar la celda
+                const cellElement = document.createElement('div');
+                cellElement.className = 'cell'; // Asigna la clase 'cell'
+
+                // Especifica un ancho mínimo para la celda
+                cellElement.style.minWidth = "30px"; // Puedes ajustar este valor según tus necesidades
+
+                // Agrega la celda a la fila
+                rowElement.appendChild(cellElement);
+            }
+    
+            // Agrega la fila al tablero
+            mapElement.appendChild(rowElement);
+        }
+        
+        function actualizarInterfaz() {
+            // Borra el contenido existente del mapa
+            
+            const mapElement = document.getElementById('map');
+
+            mapElement.innerHTML = "";
+            
+            // Hacer una solicitud GET al endpoint '/estado_mapa'
+            fetch('http://127.0.0.1:5000/estado_mapa')
+                .then(response => response.json())
+                .then(data => {
+                    const drones = data;
+
+                    // Crear un objeto para rastrear las celdas y los drones en cada celda
+                    const cells = {};
+
+                    // Iterar sobre el diccionario de drones y actualizar la interfaz
+                    for (const droneId in drones) {
+                        if (drones.hasOwnProperty(droneId)) {
+                            const {alias, posicion_x, posicion_y} = drones[droneId];
+                            const cellKey = `${posicion_x}-${posicion_y}`;
+
+                            // Verificar si la celda ya tiene drones
+                            if (cells[cellKey]) {
+                                // Agregar el nuevo nombre de dron a la lista de nombres en la celda
+                                cells[cellKey].push(droneId);
+                            } else {
+                                // Crear una nueva lista con el nombre del dron
+                                cells[cellKey] = [droneId];
+                            }
+                        }
+                    }
+
+                    // Actualizar la interfaz con los nombres de los drones en las celdas correspondientes
+                    for (const cellKey in cells) {
+                        if (cells.hasOwnProperty(cellKey)) {
+                            const [x, y] = cellKey.split('-').map(Number);
+                            const cell = mapElement.querySelector(`.row:nth-child(${y + 2}) .cell:nth-child(${x + 2})`);
+                            if (cell) {
+                                cell.innerText = cells[cellKey].join(', ');
+                            }
+                        }
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function ejecutarBucle() {
+            // Ejecutar la función inicialmente
+            actualizarInterfaz();
+
+            // Establecer un tiempo de espera antes de la siguiente ejecución
+            setTimeout(ejecutarBucle, 2000); // 2000 milisegundos = 2 segundos
+        }
+
+        // Iniciar el bucle
+        ejecutarBucle();
+
+        
+    </script>
+    
+
 </body>
 </html>

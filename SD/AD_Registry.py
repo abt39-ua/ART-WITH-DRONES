@@ -3,7 +3,7 @@ import threading
 import os
 import signal
 import sys
-from pymongo import MongoClient, server_api
+from pymongo import MongoClient, server_api, errors
 
 ID = 1
 HEADER = 64
@@ -21,7 +21,7 @@ uri = "mongodb://localhost:27018"
 api_version = server_api.ServerApi('1', strict=True, deprecation_errors=True)
 client = MongoClient(uri, server_api=api_version)
 dbName = 'SD'
-colletionName = 'drones'
+colletionName = 'drones'    
 
 # Conexión a MongoDB
 client = MongoClient("mongodb://localhost:27017/")
@@ -35,22 +35,30 @@ db = client['SD']
 collection = db['drones']
 
 def conectar_db():
-    # Conectar a la instancia de MongoDB
-    client = MongoClient('localhost', 27018)  # Asegúrate de cambiar el puerto si es diferente
-    # Seleccionar la base de datos "SD"
-    db = client['SD']
-    # Seleccionar la colección "drones"
-    collection = db['drones']
-    return collection
+    try:
+        # Conectar a la instancia de MongoDB
+        client = MongoClient('localhost', 27017)  # Asegúrate de cambiar el puerto si es diferente
+        # Seleccionar la base de datos "SD"
+        db = client['SD']
+        # Seleccionar la colección "drones"
+        collection = db['drones']
+        return collection
+    except Exception as e:
+        print(f"Error al conectar a la base de datos: {str(e)}")
+        return None
 
 def buscar_alias(alias):
-    collection = conectar_db()
-    # Buscar si el alias ya existe en la base de datos
-    document = collection.find_one({"nombre": alias})
-    print(document)
-    if document:
-        return document["_id"]
-    else:
+    try:
+        collection = conectar_db()
+        # Buscar si el alias ya existe en la base de datos
+        document = collection.find_one({"nombre": alias})
+        print(document)
+        if document:
+            return document["_id"]
+        else:
+            return "0"
+    except Exception as e:
+        print(f"Error al buscar alias en la base de datos: {str(e)}")
         return "0"
 
 def signal_handler(sig, frame):
@@ -120,7 +128,7 @@ def save_info(ID, alias):
             print(f"Error al insertar la información en la base de datos: El alias '{alias}' ya existe.")
         else:
             # Se realiza la inserción en la colección "drones" con el ID especificado
-            collection.insert_one({"_id": ID, "nombre": alias})
+            collection.insert_one({"_id": ID, "nombre": alias, "posicion_x": 0, "posicion_y": 0})
             print("Información insertada con éxito en la base de datos.")
             print()
             consultar_info()

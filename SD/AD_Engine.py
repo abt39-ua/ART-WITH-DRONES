@@ -12,7 +12,9 @@ import re
 import json
 import requests
 from pymongo import MongoClient, server_api
+from flask import Flask, jsonify
 
+app = Flask(__name__)
 registrados = 0
 mapa = {}
 HEADER = 64
@@ -56,13 +58,17 @@ db = client['SD']
 collection = db['drones']
 
 def conectar_db():
-    # Conectar a la instancia de MongoDB
-    client = MongoClient('localhost', 27018)  # Asegúrate de cambiar el puerto si es diferente
-    # Seleccionar la base de datos "SD"
-    db = client['SD']
-    # Seleccionar la colección "drones"
-    collection = db['drones']
-    return collection
+    try:
+        # Conectar a la instancia de MongoDB
+        client = MongoClient('localhost', 27017)  # Asegúrate de cambiar el puerto si es diferente
+        # Seleccionar la base de datos "SD"
+        db = client['SD']
+        # Seleccionar la colección "drones"
+        collection = db['drones']
+        return collection
+    except Exception as e:
+        print(f"Error al conectar a la base de datos: {str(e)}")
+        return None
 
 def signal_handler(sig, frame):
     # Tareas de limpieza aquí, si es necesario
@@ -312,6 +318,7 @@ class Consumer(threading.Thread):
         self.stop_event.set()
 
     def actualizar_mapa(self, position_data):
+        collection = conectar_db()
         try:
             id, (x, y) = position_data
         except (TypeError, ValueError):
@@ -322,12 +329,21 @@ class Consumer(threading.Thread):
        # drones_positions_lock.acquire()
 
         try:
+            # Actualizar la posición del dron en la base de datos
+            filter_query = {"_id": id}
+            update_query = {"$set": {"posicion_x": x, "posicion_y": y}}
+            collection.update_one(filter_query, update_query)
+           
             mapa[id] = (x, y)
-            #print(mapa)
+            print(mapa)
             #print(figura)
             if len(mapa) == registrados == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
                 time.sleep(1)
                 imprimir_mapa_actualizado(mapa, figura)
+                
+        except Exception as e:
+            print(f"Error al actualizar la posición en la base de datos: {str(e)}")
+    
         finally:
             pass
 
@@ -417,17 +433,16 @@ class Producer(threading.Thread):
             time.sleep(1)
             procesar_registrados()
         while not self.stop_event.is_set():
-            print("hola")
             if(completada == True):
                 getFigura()
-                print("segunda figura:")
+                print("Siguiente figura:")
                 #print(figura)
                 #print(mapa)
             while(mapa != figura):
                 if len(mapa) == registrados == len(figura):
+                    producer_coor = KafkaProducer(bootstrap_servers=self.broker_address)
+                    producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
                     if(actuacion == True):
-                        producer_coor = KafkaProducer(bootstrap_servers=self.broker_address )
-                        producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
                         self.enviar_coordenadas_figura(figura, producer_coor, producer_mapa)
 
                     else:
@@ -436,7 +451,6 @@ class Producer(threading.Thread):
                 else:
                     pass
                 if(completada == True):
-                    "saliendoooo"
                     break
             # Llama a la función getWeather cada t_consulta segundos
                 
@@ -481,8 +495,12 @@ def main(argv = sys.argv):
 
 
 if __name__ == "__main__":
+    # Iniciar la aplicación Flask en un hilo separado
+    flask_thread = threading.Thread(target=app.run, kwargs={'port': 5001})
+    flask_thread.start()
+
+    # Ejecutar la lógica principal en el hilo principal
     main(sys.argv[1:])
-    pass
 
 
     #  python3 AD_Engine.py 5050 20 127.0.0.1 5050 5

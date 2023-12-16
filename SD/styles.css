@@ -1,0 +1,79 @@
+/* Reset de estilos para evitar estilos predeterminados del navegador */
+body, h1, h2, p, div, span {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+header {
+    background-color: #007bff;
+    color: #fff;
+    padding: 10px;
+    text-align: center;
+}
+
+main {
+    padding: 20px;
+}
+
+#map {
+    display: grid;
+    grid-template-columns: repeat(21, 1fr);
+    gap: 2px;
+}
+
+.cell {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #000;
+    background-color: #fff; /* Cambia el color de fondo según tus necesidades */
+    margin-right: -1px; /* Ajusta el margen derecho para eliminar el espacio entre las celdas */
+}
+
+.row {
+    overflow: hidden; /* Para que las celdas floten y no afecten la altura de la fila */
+}
+
+
+#drone-info {
+    margin-top: 20px;
+}
+
+.header-cell {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #000;
+    display: inline-block;
+    margin-right: -1px; /* Ajusta el margen derecho para eliminar el espacio entre las celdas */
+}
+
+.row-header {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Alinear los elementos hacia arriba */
+    align-items: center; /* Alinear los elementos horizontalmente en el centro */
+  
+    /* Estilos adicionales para el número de fila */
+    .cell.header-cell {
+      margin-bottom: 2px; /* Ajustar el margen entre cada número */
+    }
+  }
+  
+  
+  
+
+footer {
+    background-color: #007bff;
+    color: #fff;
+    padding: 10px;
+    text-align: center;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
