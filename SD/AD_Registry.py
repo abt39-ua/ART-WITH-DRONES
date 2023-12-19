@@ -3,6 +3,9 @@ import threading
 import os
 import signal
 import sys
+import json
+import jwt
+from datetime import datetime, timedelta
 from pymongo import MongoClient, server_api, errors
 
 ID = 1
@@ -71,6 +74,28 @@ def signal_handler(sig, frame):
 # Asigna el manejador de señales
 signal.signal(signal.SIGINT, signal_handler)
 
+# Función para generar un token JWT
+def generate_jwt_token(dron_id, expiration_seconds=20):
+    try:
+        # Calcular la marca de tiempo de expiración
+        expiration_time = datetime.utcnow() + timedelta(seconds=expiration_seconds)
+
+        # Construir el payload del token
+        payload = {
+            'dron_id': dron_id,
+            'exp': expiration_time
+        }
+
+        # Reemplaza 'tu_clave_secreta' con tu clave secreta real y segura
+        secret_key = '123'
+
+        # Generar el token
+        token = jwt.encode(payload, secret_key, algorithm='HS256')
+
+        return token
+    except Exception as e:
+        print(f"Error al generar el token: {e}")
+        return None
 
 def handle_client(conn, addr):
     global ID
@@ -81,18 +106,45 @@ def handle_client(conn, addr):
         if msg_length:
             msg_length = int(msg_length)
             msg = conn.recv(msg_length).decode(FORMAT)
-            n = buscar_alias(msg)
-            print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
-            print()
-            print(n)
-            if n == "0":
-                conn.send(f"{ID}".encode(FORMAT))
-                save_info(ID, msg)
-                ID += 1
+            if type(msg) == str:
+                # Si msg es un str, es un alias
+                n = buscar_alias(msg)
+              
+                print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
+                print()
+                print(n)
+                if n == "0":
+                    token = generate_jwt_token(ID)
+                    # Enviar el token y el ID junto con la respuesta al dron
+                    response_data = {'token': token, 'id': ID, 'mensaje': 'Autenticación exitosa'}
+                    response = json.dumps(response_data)
+                    conn.send(response.encode(FORMAT))
+                    save_info(ID, msg)
+                    ID += 1
+                else:
+                    try:
+                        # Dron ya registrado, enviamos el ID y un nuevo token
+                        nuevo_token = generate_jwt_token(n)
 
+                        # Enviar el nuevo token y el ID junto con la respuesta al dron
+                        response_data = {'token': nuevo_token, 'id': n, 'mensaje': f'Este nombre ya está registrado con el ID: {n}'}
+                    
+                        response = json.dumps(response_data)
+                        conn.send(response.encode(FORMAT))
+                    except Exception as e:
+                        print(f"Error al construir la respuesta JSON: {e}")
+
+            elif type(msg) == int:
+                # Si msg es un int, es un ID
+                token = generate_jwt_token(int(msg))
+                response_data = {'token': token}
+                response = json.dumps(response_data)
+                conn.send(response.encode(FORMAT))
+                    
             else:
-                conn.send(f"Este Dron ya estaba registrado con el ID: {n}".encode(FORMAT))
-
+                # Si msg no es ni str ni int, maneja la situación según tus necesidades
+                print("Mensaje de tipo desconocido.")
+            
     conn.close()
 
 

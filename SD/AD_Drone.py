@@ -7,6 +7,9 @@ import pickle
 import time
 import threading
 import signal
+import jwt
+import time
+from datetime import datetime, timedelta
 
 ID=0
 alias = ""
@@ -27,6 +30,8 @@ ad_registry_ip = ""
 ad_registry_port = 0
 estado = False
 datos_coor = {}
+token = ""
+secret_key = '123'
 
 semaforo = threading.Semaphore(value=1)
 
@@ -39,18 +44,82 @@ def handle_interrupt(signum, frame):
 signal.signal(signal.SIGINT, handle_interrupt)
 
 def send(msg, client):
-    message = msg.encode(FORMAT)
+
+    message = str(msg).encode(FORMAT)
     msg_length = len(message)
     send_length = str(msg_length).encode(FORMAT)
     send_length += b' ' * (HEADER - len(send_length))
     client.send(send_length)
     client.send(message)
     
-def registry():
-    global ID
+def verificar_tiempo_de_expiracion(token):
+    global secret_key
+    if(token):
+        try:
+            # Decodifica el token para obtener la información del tiempo de expiración
+            decoded_token = jwt.decode(token.encode(), key=secret_key, algorithms=['HS256'])
+            
+            # Obtiene el tiempo de expiración del token
+            tiempo_expiracion = datetime.utcfromtimestamp(decoded_token['exp'])
+            
+            # Obtiene el tiempo actual
+            tiempo_actual = datetime.utcnow()
+
+            # Definir un timedelta de 20 segundos
+            delta_20_seconds = timedelta(seconds=20)
+            print(tiempo_expiracion)
+            print(tiempo_actual)
+            # Verificar si ha expirado
+            if tiempo_actual - tiempo_expiracion > delta_20_seconds:
+                return True  # Token ha expirado
+            else:
+                return False   # Token aún es válido
+
+        except jwt.ExpiredSignatureError:
+            return True      # Token ha expirado
+
+        except jwt.InvalidTokenError:
+            return True      # Token no válido
+    else:
+        print("Error: Token no válido.")
+        return True
+
+def solicitar_nuevo_token_al_servidor():
+    global token
+    # Lógica para solicitar un nuevo token al servidor de registro
+    # ...
+    ADDR = (ad_registry_ip, ad_registry_port)
+    try:
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(ADDR)
+        print (f"Establecida conexión en [{ADDR}]")
+
+        print("Realizando solicitud al servidor")
+        send(ID, client)
+        mensaje = client.recv(2048).decode(FORMAT)
+        data = json.loads(mensaje)
+        if 'token' in data:
+            token = data['token']
+            print(f"Nuevo token recibido: {token}")
+        else:
+            print("No se recibió un token en la respuesta.")
+
+    except (ConnectionRefusedError, TimeoutError):
+        print("No ha sido posible establecer conexión con el servidor de registro, inténtelo de nuevo.")
+    
+    except Exception as e:
+        print(f"Error: {e}")
+
+    finally:
+        if 'client' in locals():
+            client.close()
+        
+def registry_sockets():
+    global ID, token
     alias=input("Introduce tu alias: ")
     ADDR = (ad_registry_ip, ad_registry_port)  
-        
+    
+
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(ADDR)
@@ -59,19 +128,21 @@ def registry():
         print("Realizando solicitud al servidor")
         send(alias, client)
         mensaje = client.recv(2048).decode(FORMAT)
-        partes_mensaje = mensaje.split(": ")
-        if(len(partes_mensaje) == 2):
-            ID = int(partes_mensaje[1])
+        data = json.loads(mensaje)
+        if 'token' in data and 'id' in data:
+            token = data['token']
+            ID = data['id']
+            print(f"Token recibido: {token}")
+            print(f"ID recibido: {ID}")
+            print(f"Mensaje del servidor: {data.get('mensaje', '')}")
         else:
-            ID = int(partes_mensaje[0])
-        print(f"Recibo del Servidor: {ID}")
-        print()
+            print("No se recibió un token en la respuesta.")
+
     except (ConnectionRefusedError, TimeoutError):
         print("No ha sido posible establecer conexión con el servidor de registro, inténtelo de nuevo.")
     
     except Exception as e:
         print(f"Error: {e}")
-
 
     finally:
         if 'client' in locals():
@@ -347,7 +418,7 @@ def main(argv = sys.argv):
         print("Error: El formato debe ser el siguiente: [IP_Engine] [Puerto_Engine] [IP_Broker] [Puerto_Broker] [IP_Registry] [Puerto_Registry]")
         sys.exit(1)
     else:  
-        global ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port, ID
+        global token, ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port, ID
         
         ad_engine_ip = sys.argv[1]
         ad_engine_port = int(sys.argv[2])
@@ -356,15 +427,15 @@ def main(argv = sys.argv):
         ad_registry_ip = sys.argv[5]
         ad_registry_port = int(sys.argv[6])
         orden = ""
-        while(orden != "3"):
+        while(orden != "4"):
             
             print("¿Qué deseas hacer?")
-            print("1. Registrarse")
-            print("2. Empezar representación")
-            print("3. Apagarse")
+            print("1. Registrarse con Sockets")
+            print("2. Registrarse con API")
+            print("3. Empezar representación")
+            print("4. Apagarse")
             print("Opción:", end=" ")
             orden = input()
-            print()
             
             while orden != "1" and orden != "2" and orden != "3":
                 print("Error, indica una de las 3 posibilidades por favor(1, 2 o 3).")
@@ -377,13 +448,21 @@ def main(argv = sys.argv):
                     print("Ya estás registrado!")
                     print()
                 else:
-                    registry()
+                    registry_sockets()
 
             if orden == "2":
+                if(ID != 0):
+                    print("Ya estás registrado!")
+                    print()
+                else:
+                    registry_API()
+
+            if orden == "3":
+                print(token)
                 if(ID == 0):
                     print("No estás registrado!")
                     print()
-                else:
+                elif(token != "" and verificar_tiempo_de_expiracion(token) == False):
                     tasks = [Consumer(), Producer()]
 
                     for t in tasks:
@@ -391,8 +470,12 @@ def main(argv = sys.argv):
 
                     while True:
                         time.sleep(1)
+                else:
+                    print("El token ha expirado. Solicitando nuevo token...")
+                    solicitar_nuevo_token_al_servidor()
+                    print(token)
 
-            if orden == "3":
+            if orden == "4":
                 sys.exit()
 
 if __name__ == "__main__":

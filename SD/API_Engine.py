@@ -61,6 +61,63 @@ def estado_mapa():
     except Exception as e:
         abort(500, f"Error al obtener el estado del mapa: {str(e)}")
 
+@app.route('/drones', methods=['POST'])
+def agregar_dron():
+    try:
+        # Obtener la colección desde la conexión a la base de datos
+        collection = conectar_db()
+
+        # Obtener el JSON del cuerpo de la solicitud
+        nuevo_dron = request.json
+
+        # Insertar el nuevo dron en la base de datos
+        result = collection.insert_one(nuevo_dron)
+
+        if result.inserted_id:
+            return jsonify({"mensaje": f"Dron agregado correctamente con ID: {result.inserted_id}"}), 201
+        else:
+            return jsonify({"mensaje": "Error al agregar el dron"}), 500
+
+    except Exception as e:
+        abort(500, f"Error al agregar el dron: {str(e)}")
+
+@app.route('/drones/<string:dron_id>', methods=['PUT'])
+def modificar_dron(dron_id):
+    try:
+        # Obtener la colección desde la conexión a la base de datos
+        collection = conectar_db()
+
+        # Obtener el JSON del cuerpo de la solicitud
+        nuevo_estado = request.json
+
+        # Modificar el dron en la base de datos
+        result = collection.update_one({'_id': int(dron_id)}, {'$set': nuevo_estado})
+
+        if result.modified_count > 0:
+            return jsonify({"mensaje": f"Dron con ID {dron_id} modificado correctamente"})
+        else:
+            return jsonify({"mensaje": f"No se encontró el dron con ID {dron_id} para modificar"})
+
+    except Exception as e:
+        abort(500, f"Error al modificar el dron: {str(e)}")
+
+@app.route('/drones/<string:dron_id>', methods=['DELETE'])
+def eliminar_dron(dron_id):
+    try:
+        # Obtener la colección desde la conexión a la base de datos
+        collection = conectar_db()
+
+        # Eliminar el dron de la base de datos
+        result = collection.delete_one({'_id': int(dron_id)})
+
+        if result.deleted_count > 0:
+            return jsonify({"mensaje": f"Dron con ID {dron_id} eliminado correctamente"})
+        else:
+            return jsonify({"mensaje": f"No se encontró el dron con ID {dron_id} para eliminar"})
+
+    except Exception as e:
+        abort(500, f"Error al eliminar el dron: {str(e)}")
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
