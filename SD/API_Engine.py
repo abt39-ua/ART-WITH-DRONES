@@ -42,17 +42,21 @@ def conectar_db():
 @app.route('/estado_mapa', methods=['GET'])
 def estado_mapa():
     try:
-         # Obtener la colección desde la conexión a la base de datos
+        # Obtener la colección desde la conexión a la base de datos
         collection = conectar_db()
 
         # Recuperar todos los drones de la colección
         drones = collection.find()
-
+        base = (0,0)
         # Crear un diccionario con la información de posición y alias de los drones
-        estado_mapa = {str(dron['_id']): {'alias': dron['nombre'], 'posicion_x': dron['posicion_x'], 'posicion_y': dron['posicion_y']} for dron in drones}
-        
-
+        estado_mapa = {str(dron['_id']): {'alias': dron['nombre'], 'posicion_x': dron['posicion_x'], 'posicion_y': dron['posicion_y'], 'estado': dron['estado']} for dron in drones}
         print("Estado del mapa:", estado_mapa)
+        # Verificar si todos los drones están en la base (posición (1, 1))
+        todos_en_base = all((info_dron['posicion_x'], info_dron['posicion_y']) == base for info_dron in estado_mapa.values())
+        if todos_en_base:
+            for dron_id, info_dron in estado_mapa.items():
+                estado_mapa[dron_id]['estado'] = False
+        
         return jsonify(estado_mapa)
     except Exception as e:
         abort(500, f"Error al obtener el estado del mapa: {str(e)}")

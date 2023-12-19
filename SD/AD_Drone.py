@@ -25,7 +25,8 @@ broker_ip = ""
 broker_port = 0
 ad_registry_ip = ""
 ad_registry_port = 0
-destino_alcanzado = False
+estado = False
+datos_coor = {}
 
 semaforo = threading.Semaphore(value=1)
 
@@ -94,8 +95,8 @@ def imprimir_mapa_actualizado(mapa, figura):
     for y in range(20):
         for x in range(20):
             drones_en_casilla = []
-            for id, posicion in mapa.items():
-                if posicion == (x, y):
+            for id, datos in mapa.items():
+                if datos == (x, y):
                     drones_en_casilla.append(id)
             cantidad_drones = len(drones_en_casilla)
             n = max(n, cantidad_drones)  # Actualiza n con el máximo número de drones encontrados en una casilla
@@ -128,8 +129,8 @@ def imprimir_mapa_actualizado(mapa, figura):
         for y in range(20):
             drones_en_casilla = []
             id_dron = None
-            for id, posicion in mapa.items():
-                if posicion == (x, y):
+            for id, datos in mapa.items():
+                if datos == (x, y):
                     drones_en_casilla.append(id)
                 
             if(mapa == figura_ajustada):
@@ -207,17 +208,19 @@ class Producer(threading.Thread):
         self.stop_event.set()
 
     def run(self):
-        global semaforo, destino_alcanzado
+        global semaforo, estado
         while not self.stop_event.is_set():
             producer = KafkaProducer(bootstrap_servers=self.broker_address)
 
-            position_data = (ID, (ca_x, ca_y))
+            position_data = (ID, (ca_x, ca_y), estado)
+        
+    
             if ca_x == cd_x and ca_y == cd_y:
-                if destino_alcanzado == False:
+                if estado == False:
                     print("He llegado a mi destino")
-                    destino_alcanzado = True
+                    estado = True
             else:
-                destino_alcanzado = False
+                estado = False
 
             if position_data != self.last_sent_message:
                 print(f"Me he movido a ({ca_x+1}, {ca_y+1})")
@@ -264,7 +267,7 @@ def mov(cd_x, cd_y, x, y):
     if ca_x == cd_x and ca_y == cd_y:
         return 1
     else:
-            # Mueve las posiciones de 1 en 1 y ajusta para la geometría esférica
+            # Mueve las datoses de 1 en 1 y ajusta para la geometría esférica
         if distancia_x > 0:
             ca_x += 1
         elif distancia_x < 0:
@@ -274,12 +277,12 @@ def mov(cd_x, cd_y, x, y):
             ca_y += 1
         elif distancia_y < 0:
             ca_y -= 1
-        # Asegura que las posiciones estén dentro de los límites del mapa
+        # Asegura que las datoses estén dentro de los límites del mapa
         ca_x %= width
         ca_y %= height
 
 class Consumer(threading.Thread):
-    global ID
+    global ID, datos_coor
     def __init__(self):
         threading.Thread.__init__(self)
         self.broker_address = f"{broker_ip}:{broker_port}"
@@ -306,14 +309,15 @@ class Consumer(threading.Thread):
                 for coor_message in consumer_coord:
 
                     datos_coor = coor_message.value
-                    for id, (x, y) in datos_coor.items():
+                    for id, datos in datos_coor.items():
                         if ID == int(id):
-                            print(f'ID: {id}, Coordenadas:({x}, {y})')
+                            x, y = datos["posicion"]
+                            print(f'ID: {id}, Coordenadas:({x}, {y}), Estado: {datos["estado"]}')
                             print()
                             time.sleep(2)
-                        
+
                             semaforo.acquire()
-                            setCoords(x-1,y-1)
+                            setCoords(x-1, y-1)
                             
                             for mapa_message in consumer_mapa:
                                 datos_mapa = mapa_message.value

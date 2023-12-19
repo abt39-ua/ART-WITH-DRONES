@@ -12,8 +12,8 @@ body {
 }
 
 header {
-    background-color: #007bff;
-    color: #fff;
+    background-color: #0047935f;
+    color: #0e0e01b3;
     padding: 10px;
     text-align: center;
 }
@@ -33,8 +33,9 @@ main {
     height: 20px;
     border: 1px solid #000;
     background-color: #fff; /* Cambia el color de fondo según tus necesidades */
-    margin-right: -1px; /* Ajusta el margen derecho para eliminar el espacio entre las celdas */
+    margin-right: -1px; /* Ajusta el margen derecho para eliminar el espacio entre las celdas *
 }
+
 
 .row {
     overflow: hidden; /* Para que las celdas floten y no afecten la altura de la fila */
@@ -64,12 +65,9 @@ main {
       margin-bottom: 2px; /* Ajustar el margen entre cada número */
     }
   }
-  
-  
-  
 
 footer {
-    background-color: #007bff;
+    background-color: #007bff59;
     color: #fff;
     padding: 10px;
     text-align: center;

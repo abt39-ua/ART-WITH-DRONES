@@ -10,7 +10,7 @@
 <body>
     <!-- Encabezado de la página -->
     <header>
-        <h1>Estado del Mapa</h1>
+        <h1>🔥 Estado del Mapa 🔥</h1>
     </header>
 
     <!-- Contenido principal -->
@@ -25,12 +25,9 @@
             <!-- Asegúrate de ajustar según tus necesidades -->
             <!-- Fin del ejemplo -->
         </div>
-
+        
         <!-- Información relacionada con los drones -->
-        <div id="drone-info">
-            <h2>Información del Drone</h2>
-            <p>Ubicación: <span id="location">Loading...</span></p>
-            <p>Altura: <span id="altitude">Loading...</span></p>
+        <div id="">
             <!-- Puedes agregar más información aquí según tus necesidades -->
         </div>
     </main>
@@ -90,7 +87,7 @@
                 cellElement.className = 'cell'; // Asigna la clase 'cell'
 
                 // Especifica un ancho mínimo para la celda
-                cellElement.style.minWidth = "30px"; // Puedes ajustar este valor según tus necesidades
+                cellElement.style.minWidth = "50px"; // Puedes ajustar este valor según tus necesidades
 
                 // Agrega la celda a la fila
                 rowElement.appendChild(cellElement);
@@ -99,19 +96,75 @@
             // Agrega la fila al tablero
             mapElement.appendChild(rowElement);
         }
-        
-        function actualizarInterfaz() {
-            // Borra el contenido existente del mapa
-            
-            const mapElement = document.getElementById('map');
 
-            mapElement.innerHTML = "";
+        function checkAllDronesInMap(drones) {
+            for (const droneId in drones) {
+                if (drones.hasOwnProperty(droneId)) {
+                if (!drones[droneId].estado) {
+                    return false;  // If any drone's estado is false, return false immediately
+                }
+                }
+            }
+            return true;  // If we reach this point, it means all drones have estado set to true
+        }
+        
+        // Variable para rastrear si el mensaje ya se mostró
+        let figuraCompletadaMostrada = false;
+
+        function actualizarInterfaz() {
+
+            // Borra el contenido existente del mapa
+            const mapElement = document.getElementById('map');
+            const cells = document.querySelectorAll('#map .row:not(.header-row) .cell:not(.row-header)');
+            // Limpiar el contenido de todas las celdas
+            cells.forEach(cell => {
+                cell.innerText = ""; // Vaciar la celda
+                cell.style.backgroundColor = 'white';
+            });
+            //mapElement.innerHTML = "";
             
             // Hacer una solicitud GET al endpoint '/estado_mapa'
             fetch('http://127.0.0.1:5000/estado_mapa')
                 .then(response => response.json())
                 .then(data => {
                     const drones = data;
+                    completada = checkAllDronesInMap(drones);
+
+                    if(completada){
+                        if (!figuraCompletadaMostrada) {
+                            // Crear un contenedor para centrar el mensaje
+                            const centerContainer = document.createElement('div');
+                            centerContainer.style.textAlign = 'center';
+                            centerContainer.style.marginTop = '20px';  // Ajusta el espacio en la parte superior según sea necesario
+
+                            // Mostrar el mensaje solo si no se ha mostrado antes
+                            const completionMessage = document.createElement('div');
+                            completionMessage.innerText = "¡FIGURA COMPLETADA!";
+                            completionMessage.style.fontSize = "3em";
+                            completionMessage.style.color = "black";
+                            completionMessage.style.backgroundColor = "gold";  // Fondo dorado
+                            completionMessage.style.padding = "10px";
+                            completionMessage.style.display = "inline-block";  // Hacer que el fondo se ajuste al texto
+                            completionMessage.className = 'completion-message';  // Clase para identificación y eliminación posterior
+                            
+                            // Agregar el mensaje al contenedor centrado
+                            centerContainer.appendChild(completionMessage);
+                            
+                            mapElement.parentNode.insertBefore(centerContainer, mapElement.nextSibling);
+
+                            // Establecer la variable para indicar que el mensaje se ha mostrado
+                            figuraCompletadaMostrada = true;
+                        }
+                    
+                        } else {
+                            // La figura ya no está completada, verificar y eliminar el mensaje si está presente
+                            const completionMessage = document.querySelector('.completion-message');
+                            if (completionMessage) {
+                                completionMessage.parentNode.removeChild(completionMessage);
+                                // Restablecer la variable para indicar que el mensaje se ha eliminado
+                                figuraCompletadaMostrada = false;
+                            }
+                        }
 
                     // Crear un objeto para rastrear las celdas y los drones en cada celda
                     const cells = {};
@@ -119,8 +172,8 @@
                     // Iterar sobre el diccionario de drones y actualizar la interfaz
                     for (const droneId in drones) {
                         if (drones.hasOwnProperty(droneId)) {
-                            const {alias, posicion_x, posicion_y} = drones[droneId];
-                            const cellKey = `${posicion_x}-${posicion_y}`;
+                            const {alias, posicion_x, posicion_y, estado} = drones[droneId];
+                            const cellKey = `${posicion_x}-${posicion_y}-${estado}`;
 
                             // Verificar si la celda ya tiene drones
                             if (cells[cellKey]) {
@@ -136,13 +189,23 @@
                     // Actualizar la interfaz con los nombres de los drones en las celdas correspondientes
                     for (const cellKey in cells) {
                         if (cells.hasOwnProperty(cellKey)) {
-                            const [x, y] = cellKey.split('-').map(Number);
+                            const [x, y, estado] = cellKey.split('-').map(Number);
                             const cell = mapElement.querySelector(`.row:nth-child(${y + 2}) .cell:nth-child(${x + 2})`);
                             if (cell) {
+                                let cellColor = "green";  // Assume initially that the cell color is green
+                                for (const droneId of cells[cellKey]) {
+                                    if (!drones[droneId].estado) {
+                                        cellColor = "red";  // If any drone in the cell does not have a true state, set cell color to red
+                                        break;  // Exit the loop, since we already know the cell color should be red
+                                    }
+                                }
+                                cell.style.backgroundColor = cellColor;  // Set the background color of the cell based on the calculated cellColor
                                 cell.innerText = cells[cellKey].join(', ');
+                                cell.style.color = "white";
                             }
                         }
                     }
+                    
                 })
                 .catch(error => console.error('Error:', error));
         }

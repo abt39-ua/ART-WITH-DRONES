@@ -29,6 +29,7 @@ ciudades = {}
 figura = {}
 figuras = {}
 volver_base = {}
+volver_base_ajustado = {}
 actuacion = True
 drones_positions_lock = threading.Lock()
 completada = False
@@ -38,6 +39,8 @@ t_consulta = 0
 temp =0
 output_lock = threading.Lock()
 ciudad = ""
+volver_base = {}
+figura_ajustada = {}
 
 # Conexión a MongoDB con una versión específica de la API del servidor
 uri = "mongodb://localhost:27018"
@@ -162,7 +165,8 @@ def getFiguras():
                     ID = drone.get("ID")
                     pos = drone.get("POS", "0,0").split(",")
                     x, y = map(int, pos)
-                    drones_positions[ID] = (x, y)
+                    estado = True  # Añadir variable de estado por defecto
+                    drones_positions[ID] = {"posicion": (x, y), "estado": estado}
                 figuras[nombre] = drones_positions
             return figuras
     except FileNotFoundError:
@@ -178,14 +182,17 @@ def getFigura():
         nombre_figura = next(iter(figuras))
         drones = figuras[nombre_figura]
         figura = {}
-        for ID, pos in drones.items():
-            x, y = pos
-            figura[ID] = (x, y)
+        for ID, info in drones.items():
+            x, y = info["posicion"]
+            estado = True  # Añadir variable de estado por defecto
+            figura[ID] = {"posicion": (x, y), "estado": estado}
         # Eliminar la figura procesada del diccionario de figuras
         del figuras[nombre_figura]
         print("Figura procesada y guardada en figura:")
         #print(figura)
+        return 0
     else:
+        return 1
         print("No hay más figuras para procesar.")
 
 ##############   MAPA    #######################
@@ -201,7 +208,7 @@ LETRA_GROSOR_NEGRITA = "\033[1m"
 
 cuadrado = "□"
 
-
+"""
 def imprimir_mapa_actualizado(mapa, figura):
     global completada
     n = 0
@@ -215,9 +222,15 @@ def imprimir_mapa_actualizado(mapa, figura):
             n = max(n, cantidad_drones)  # Actualiza n con el máximo número de drones encontrados en una casilla
     
     longitud_maxima = max(len(cuadrado),(n))        
-    figura_ajustada = {
-        int(i): (x - 1, y - 1) for i, (x, y) in figura.items()
-    }
+    figura_ajustada = {}
+    for drone_id, drone_info in figura.items():
+            nueva_posicion = (drone_info['posicion'][0] - 1, drone_info['posicion'][1] - 1)
+
+            nuevo_estado = drone_info['estado']
+            
+            # Crear la entrada correspondiente en volver_base_ajustado
+            figura_ajustada[drone_id] = {'posicion': nueva_posicion, 'estado': nuevo_estado}
+
     #print(mapa)
     #print(figura_ajustada)
     #print(longitud_maxima)
@@ -303,7 +316,7 @@ def imprimir_mapa_actualizado(mapa, figura):
                         cuadrado_formateado = cuadrado.rjust(longitud_maxima*2)
                         print(cuadrado_formateado, end=" "*longitud_maxima*2) 
         print()  # Nueva línea para la siguiente fila
-
+""" 
 ##############   KAFKA   ######################
 
 class Consumer(threading.Thread):
@@ -320,7 +333,7 @@ class Consumer(threading.Thread):
     def actualizar_mapa(self, position_data):
         collection = conectar_db()
         try:
-            id, (x, y) = position_data
+            id, (x, y), estado = position_data
         except (TypeError, ValueError):
             print("Datos de posición inválidos recibidos del dron.")
             return # Adquirir el bloqueo antes de realizar actualizaciones en el mapa
@@ -331,15 +344,15 @@ class Consumer(threading.Thread):
         try:
             # Actualizar la posición del dron en la base de datos
             filter_query = {"_id": id}
-            update_query = {"$set": {"posicion_x": x, "posicion_y": y}}
+            update_query = {"$set": {"posicion_x": x, "posicion_y": y, "estado": estado}}
             collection.update_one(filter_query, update_query)
            
-            mapa[id] = (x, y)
+            mapa[id] = ((x, y), estado)
             print(mapa)
             #print(figura)
             if len(mapa) == registrados == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
                 time.sleep(1)
-                imprimir_mapa_actualizado(mapa, figura)
+                #imprimir_mapa_actualizado(mapa, figura)
                 
         except Exception as e:
             print(f"Error al actualizar la posición en la base de datos: {str(e)}")
@@ -363,7 +376,7 @@ class Consumer(threading.Thread):
                 for message in consumer:
                     try:
                         position_data = pickle.loads(message.value)
-                        if isinstance(position_data, tuple) and len(position_data) == 2:
+                        if isinstance(position_data, tuple) and len(position_data) == 3:
                             self.actualizar_mapa(position_data)
                             print(position_data)
                             print(len(mapa))
@@ -382,7 +395,7 @@ class Consumer(threading.Thread):
 
 
 class Producer(threading.Thread):
-    global mapa, registrados, figura, volver_base, t_consulta, actuacion, figuras
+    global mapa, registrados, figura, volver_base, t_consulta, actuacion, figuras, volver_base_ajustado
     def __init__(self):
         threading.Thread.__init__(self)
         self.broker_address = f"{broker_ip}:{broker_port}"
@@ -406,17 +419,32 @@ class Producer(threading.Thread):
         completada = self.verificar_completitud(mapa, drones_positions)
 
     def verificar_completitud(self, mapa, coordenadas_figura):
-        global completada
-        #print(mapa)
-        figura_ajustada = {
-            int(i): (x - 1, y - 1) for i, (x, y) in coordenadas_figura.items()
-        }
+        global completada, figura_ajustada
+        print(mapa)
+        print(coordenadas_figura)
+        estado_defecto = True
+        
+        
+        for drone_id, drone_info in coordenadas_figura.items():
+            nueva_posicion = (drone_info['posicion'][0] - 1, drone_info['posicion'][1] - 1)
+            nuevo_estado = True
+            
+            # Crear la entrada correspondiente en volver_base_ajustado
+            figura_ajustada[drone_id] = (nueva_posicion,nuevo_estado)
+
         #print(figura_ajustada)
         print(completada)
+        print("Imprimiendo mapa:")
+        print(mapa)
+        print("Imprimiendo figura_ajustada")
+        print(figura_ajustada)
         if all(key in mapa and mapa[key] == value for key, value in figura_ajustada.items()):
-            return True
+            if (figura_ajustada != volver_base_ajustado): 
+                return True
+            else:
+                return False
         else:
-            return False
+           return False
 
     def run(self):
         global completada
@@ -426,32 +454,53 @@ class Producer(threading.Thread):
         print(t_consulta)
         getFiguras()
         getFigura()
-        #print(figura)
-        #print(len(figura))
-        volver_base = {id: (1, 1) for id in figura.keys()}
+        print(figura)
+        print(figuras)
+        for drone_id, drone_info in figura.items():
+            # Establecer las posiciones y estados por defecto
+            nueva_posicion = (1, 1)
+            nuevo_estado = False
+            
+            # Crear la entrada correspondiente en volver_base
+            volver_base[drone_id] = {'posicion': nueva_posicion, 'estado': nuevo_estado}
+        
+        for drone_id, drone_info in volver_base.items():
+                print(drone_info)
+                nueva_posicion = (drone_info['posicion'][0] - 1, drone_info['posicion'][1] - 1)
+                nuevo_estado = False
+                
+                # Crear la entrada correspondiente en volver_base_ajustado
+                volver_base_ajustado[drone_id] = (nueva_posicion, nuevo_estado)
+
         while registrados < len(figura):
             time.sleep(1)
             procesar_registrados()
         while not self.stop_event.is_set():
-            if(completada == True):
-                getFigura()
-                print("Siguiente figura:")
-                #print(figura)
-                #print(mapa)
             while(mapa != figura):
-                if len(mapa) == registrados == len(figura):
+                if len(mapa) == len(figura) and registrados >= len(figura):
                     producer_coor = KafkaProducer(bootstrap_servers=self.broker_address)
                     producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
                     if(actuacion == True):
                         self.enviar_coordenadas_figura(figura, producer_coor, producer_mapa)
 
                     else:
-                        self.enviar_coordenadas_figura(volver_base,producer_coor, producer_mapa)
+                        self.enviar_coordenadas_figura(volver_base, producer_coor, producer_mapa)
                         
                 else:
                     pass
-                if(completada == True):
-                    break
+                if actuacion == True and completada == True and mapa != volver_base_ajustado:
+                    time.sleep(5)
+                    n = getFigura()
+                    if(n == 0):
+                        print("Procesando siguiente figura...")
+                        print("Mostrando figura:")
+                        print()
+                    else: 
+                        print("No hay más figuras para procesar:")
+                        while(True):
+                            self.enviar_coordenadas_figura(volver_base,producer_coor, producer_mapa)
+                
+
             # Llama a la función getWeather cada t_consulta segundos
                 
 

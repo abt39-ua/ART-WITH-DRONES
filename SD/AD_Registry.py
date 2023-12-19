@@ -21,7 +21,7 @@ uri = "mongodb://localhost:27018"
 api_version = server_api.ServerApi('1', strict=True, deprecation_errors=True)
 client = MongoClient(uri, server_api=api_version)
 dbName = 'SD'
-colletionName = 'drones'    
+colletionName = 'drones'  
 
 # Conexión a MongoDB
 client = MongoClient("mongodb://localhost:27017/")
@@ -128,7 +128,7 @@ def save_info(ID, alias):
             print(f"Error al insertar la información en la base de datos: El alias '{alias}' ya existe.")
         else:
             # Se realiza la inserción en la colección "drones" con el ID especificado
-            collection.insert_one({"_id": ID, "nombre": alias, "posicion_x": 0, "posicion_y": 0})
+            collection.insert_one({"_id": ID, "nombre": alias, "posicion_x": 0, "posicion_y": 0, "estado":False})
             print("Información insertada con éxito en la base de datos.")
             print()
             consultar_info()
