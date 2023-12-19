@@ -32,25 +32,33 @@ destino_alcanzado = False
 semaforo = threading.Semaphore(value=1)
 
 #######   API   ############
-def registryAPl():
-    context = ssl._create_unverified_context()
-    global ID
-    alias=input("Introduce tu alias: ")
-        
-    try:
-        with socket.create_connection((ad_registry_ip, ad_registry_port)) as sock:
-            with context.wrap_socket(sock, server_hostname=ad_registry_ip) as ssock: 
-                print("Realizando solicitud al servidor")
-                ssock.send(b'alias')
-                data = ssock.recv(1024)
-                ID = int(repr(data))
-                print(f"Recibo del Servidor: {ID}")
+def registryAPI():
+    client_cert = 'cert.pem'
 
-    except (ConnectionRefusedError, TimeoutError):
-        print("No ha sido posible establecer conexión con el servidor de registro, inténtelo de nuevo.")
-    
-    except Exception as e:
-        print(f"Error: {e}")
+    # Crear un socket TCP/IP
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # Conectar el socket al servidor
+    server_address = (ad_registry_ip, 8443)
+    client_socket.connect(server_address)
+
+    # Configurar SSL
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    context.load_verify_locations(cafile=client_cert)
+
+    # Configurar el socket para realizar la conexión SSL
+    client_socket = context.wrap_socket(client_socket, server_hostname='127.0.0.1')
+
+    try:
+        # Enviar datos
+        message = "Hola, servidor!"
+        client_socket.sendall(message.encode('utf-8'))
+        data = client_socket.recv(1024).decode('utf-8')
+        print(f"Received from the server: {data}")
+
+    finally:
+        # Cerrar la conexión
+        client_socket.close()
 
 ########   SOCKETS   ###########
 
@@ -73,7 +81,7 @@ def send(msg, client):
 def registryS():
     global ID
     alias=input("Introduce tu alias: ")
-    ADDR = (ad_registry_ip, ad_registry_port)  
+    ADDR = (ad_registry_ip, ad_registry_port_S)  
         
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -302,8 +310,8 @@ def mov(cd_x, cd_y, x, y):
         # Asegura que las posiciones estén dentro de los límites del mapa
         ca_x %= width
         ca_y %= height
-def registryAPI():
-    registryS()
+#def registryAPI():
+ #   registryS()
 
 class Consumer(threading.Thread):
     global ID
@@ -366,18 +374,19 @@ class Consumer(threading.Thread):
 ########## MAIN ##########
 
 def main(argv = sys.argv):
-    if len(sys.argv) != 7:
-        print("Error: El formato debe ser el siguiente: [IP_Engine] [Puerto_Engine] [IP_Broker] [Puerto_Broker] [IP_Registry] [Puerto_Registry]")
+    if len(sys.argv) != 8:
+        print("Error: El formato debe ser el siguiente: [IP_Engine] [Puerto_Engine] [IP_Broker] [Puerto_Broker] [IP_Registry] [Puerto_Registry_S] [Puerto_Registry_API]")
         sys.exit(1)
     else:  
-        global ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port, ID
+        global ad_engine_ip, ad_engine_port, broker_ip, broker_port, ad_registry_ip, ad_registry_port_S, ID, ad_registry_port_API
         
         ad_engine_ip = sys.argv[1]
         ad_engine_port = int(sys.argv[2])
         broker_ip = sys.argv[3]
         broker_port = int(sys.argv[4])
         ad_registry_ip = sys.argv[5]
-        ad_registry_port = int(sys.argv[6])
+        ad_registry_port_S = int(sys.argv[6])
+        ad_registry_port_API = int(sys.argv[7])
         orden = ""
         while(orden != "3"):
             

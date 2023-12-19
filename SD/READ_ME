@@ -22,3 +22,6 @@ sudo systemctl status zookeeper
 
 docker run -d --name mongo -p 27018:27017 mongo:latest
 docker ps -a
+
+#activar gunicorn
+gunicorn -w 4 -b 0.0.0.0:443 app:app

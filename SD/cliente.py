@@ -1,3 +1,4 @@
+"""
 import socket
 import ssl
 
@@ -17,3 +18,36 @@ with socket.create_connection((hostname, port)) as sock:
         ssock.send(b'HOLA MUNDO');
         data = ssock.recv(1024)
         print('Recibido', repr(data))
+"""
+
+import ssl
+import socket
+
+def client():
+    client_cert = 'cert.pem'
+
+    # Crear un socket TCP/IP
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # Conectar el socket al servidor
+    server_address = ('127.0.0.1', 8443)
+    client_socket.connect(server_address)
+
+    # Configurar SSL
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    context.load_verify_locations(cafile=client_cert)
+
+    # Configurar el socket para realizar la conexión SSL
+    client_socket = context.wrap_socket(client_socket, server_hostname='127.0.0.1')
+
+    try:
+        # Enviar datos
+        message = "Hola, servidor!"
+        client_socket.sendall(message.encode('utf-8'))
+
+    finally:
+        # Cerrar la conexión
+        client_socket.close()
+
+if __name__ == "__main__":
+    client()
