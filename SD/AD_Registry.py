@@ -3,6 +3,7 @@ import threading
 import os
 import signal
 import sys
+import hashlib
 import json
 import jwt
 from datetime import datetime, timedelta
@@ -57,7 +58,6 @@ def buscar_alias(alias):
         collection = conectar_db()
         # Buscar si el alias ya existe en la base de datos
         document = collection.find_one({"nombre": alias})
-        print(document)
         if document:
             return document["_id"]
         else:
@@ -65,6 +65,7 @@ def buscar_alias(alias):
     except Exception as e:
         print(f"Error al buscar alias en la base de datos: {str(e)}")
         return "0"
+      
 
 def signal_handler(sig, frame):
     global server
@@ -110,48 +111,64 @@ def handle_client_socket(conn, addr):
         if msg_length:
             msg_length = int(msg_length)
             msg = conn.recv(msg_length).decode(FORMAT)
-            if msg.isdigit() == False:
-                # Si msg es un str, es un alias
-                n = buscar_alias(msg)
-                
-                print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
-                print()
-                print(n)
-                if n == "0":
-                    # Obtener el último documento insertado
-                    last_document = collection.find_one({}, sort=[("_id", -1)])
-
-                    if last_document:
-                        last_id = last_document["_id"]
-                        ID = last_id + 1
-                    
-                    token = generate_jwt_token(ID)
-                    # Enviar el token y el ID junto con la respuesta al dron
-                    response_data = {'token': token, 'id': ID, 'mensaje': 'Autenticación exitosa'}
-                    response = json.dumps(response_data)
-                    conn.send(response.encode(FORMAT))
-                    save_info(ID, msg)
-                    ID += 1
-                else:
-                    try:
-                        # Dron ya registrado, enviamos el ID y un nuevo token
-                        nuevo_token = generate_jwt_token(n)
-
-                        # Enviar el nuevo token y el ID junto con la respuesta al dron
-                        response_data = {'token': nuevo_token, 'id': n, 'mensaje': f'Este nombre ya está registrado con el ID: {n}'}
-                    
-                        response = json.dumps(response_data)
-                        conn.send(response.encode(FORMAT))
-                    except Exception as e:
-                        print(f"Error al construir la respuesta JSON: {e}")
+            if "{" in msg and "}" in msg:
+                # Si msg parece ser un JSON, intenta cargarlo
+                try:
+                    data = json.loads(msg)
+                    if "nombre" in data and "contraseña" in data:
+                        alias = data["nombre"]
+                        hashed_password_from_client = data["contraseña"]
+                          
+                        n = buscar_alias(alias)
                         
+                        print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
+                        print()
+                        print(n)
+                        if n == "0":
+                            # Obtener el último documento insertado
+                            last_document = collection.find_one({}, sort=[("_id", -1)])
+
+                            if last_document:
+                                last_id = last_document["_id"]
+                                ID = last_id + 1
+                
+                            token = generate_jwt_token(ID)
+                            # Enviar el token y el ID junto con la respuesta al dron
+                            response_data = {'token': token, 'id': ID, 'mensaje': 'Autenticación exitosa'}
+                            response = json.dumps(response_data)
+                            conn.send(response.encode(FORMAT))
+                            save_info(ID, msg)
+                            ID += 1
+                            
+                        else:
+                            correcta = comprobar_contraseñas(alias, hashed_password_from_client)
+                            try: 
+                                if(correcta):
+                                    # Contraseña válida, enviamos el nuevo token y el ID junto con la respuesta al dron
+                                    nuevo_token = generate_jwt_token(n)
+
+                                    # Enviar el nuevo token y el ID junto con la respuesta al dron
+                                    response_data = {'token': nuevo_token, 'id': n, 'mensaje': f'Este nombre ya está registrado con el ID: {n}'}
+                                else:
+                                    # Contraseña incorrecta, enviamos un mensaje de error al dron
+                                    response_data = {'mensaje': 'Contraseña incorrecta'}
+                                
+                                response = json.dumps(response_data)
+                                conn.send(response.encode(FORMAT))
+                            except Exception as e:
+                                print(f"Error al construir la respuesta JSON: {e}") 
+                except json.JSONDecodeError:
+                    # No es un JSON válido
+                    print("Mensaje no válido. Se espera un JSON.")
             else:
                 # Si msg es un int, es un ID
-                token = generate_jwt_token(int(msg))
-                response_data = {'token': token}
-                response = json.dumps(response_data)
-                conn.send(response.encode(FORMAT))
-            
+                if msg.isdigit():
+                    token = generate_jwt_token(int(msg))
+                    response_data = {'token': token}
+                    response = json.dumps(response_data)
+                    conn.send(response.encode(FORMAT))
+                else:
+                    print("Mensaje en formato incorrecto.")      
     conn.close()
 
 #VIA API_REST
@@ -180,13 +197,34 @@ def agregar_registro():
         # Obtener el JSON del cuerpo de la solicitud
         nuevo_registro = request.json
 
-        # Insertar el nuevo registro en la base de datos
-        result = collection.insert_one(nuevo_registro)
+        if "nombre" in nuevo_registro and "contraseña" in nuevo_registro:
+            alias = nuevo_registro["nombre"]
+            hashed_password_from_client = nuevo_registro["contraseña"]
+            print(alias)
+            print(hashed_password_from_client)
+            n = buscar_alias(alias)
+            
+            if n == "0":
+                # Insertar el nuevo registro en la base de datos
+                result = collection.insert_one(nuevo_registro)
+                token = generate_jwt_token(ID)
+                if result.inserted_id:
+                    return jsonify({"mensaje": f"Registro agregado correctamente con ID: {result.inserted_id}"}), 201
+            else:
+                correcta = comprobar_contraseñas(alias, hashed_password_from_client)
+                print(correcta)
+                if correcta:
+                    # Contraseña válida, enviamos el nuevo token y el ID junto con la respuesta al dron
+                    nuevo_token = generate_jwt_token(n)
+                    response_data = {'token': nuevo_token, 'id': n, 'mensaje': f'Este nombre ya está registrado con el ID: {n}'}
+                else:
+                    # Contraseña incorrecta, enviamos un mensaje de error al dron
+                    response_data = {'mensaje': 'Contraseña incorrecta'}
 
-        if result.inserted_id:
-            return jsonify({"mensaje": f"Registro agregado correctamente con ID: {result.inserted_id}"}), 201
+                return jsonify(response_data), 200
+
         else:
-            return jsonify({"mensaje": "Error al agregar el registro"}), 500
+            return jsonify({"mensaje": "Error, información a almacenar incorrecta."}), 400
 
     except Exception as e:
         return jsonify({"mensaje": f"Error al agregar el registro: {str(e)}"}), 500
@@ -233,6 +271,27 @@ def eliminar_registro(registro_id):
 def run_api_server():
     app.run(host='0.0.0.0', port=5002)
 
+def comprobar_contraseñas(alias, hashed_password_from_client):
+    global collection
+    print("Comprobando contraseñas:")
+    # Dron ya registrado, verificamos la contraseña
+    stored_document = collection.find_one({"nombre": alias})
+    print("Imprimiendo info:")
+    print(stored_document)
+    print()
+    stored_password = stored_document.get("contraseña", "")
+    print("Contraseña de la BD:")
+    print(stored_password)
+    print("Contraseña del cliente:")
+    print(hashed_password_from_client)
+    print()
+    try:
+        if (stored_password == hashed_password_from_client):
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error al verificar la contraseña: {e}")
 
 def handle_socket_connections():
     global server, ad_registry_ip
@@ -256,21 +315,25 @@ def handle_socket_connections():
     except Exception as e:
         print(f"Error al iniciar el servidor: {str(e)}")
 
-def save_info(ID, alias):
+def save_info(ID, msg):
     try:
         collection = conectar_db()
         print("Conexión exitosa a la base de datos")
-
-        existing_document = collection.find_one({"nombre": alias})
-        if existing_document:
-            print(f"Error al insertar la información en la base de datos: El alias '{alias}' ya existe.")
+        data = json.loads(msg)
+        if "nombre" in data and "contraseña" in data:
+            alias = data["nombre"]
+            hashed_password_from_client = data["contraseña"]          
+            existing_document = collection.find_one({"nombre": alias})
+            if existing_document:
+                print(f"Error al insertar la información en la base de datos: El alias '{alias}' ya existe.")
+            else:
+                # Se realiza la inserción en la colección "drones" con el ID especificado
+                collection.insert_one({"_id": ID, "nombre": alias,"contraseña": hashed_password_from_client, "posicion_x": 0, "posicion_y": 0, "estado":False})
+                print("Información insertada con éxito en la base de datos.")
+                print()
+                consultar_info()
         else:
-            # Se realiza la inserción en la colección "drones" con el ID especificado
-            collection.insert_one({"_id": ID, "nombre": alias, "posicion_x": 0, "posicion_y": 0, "estado":False})
-            print("Información insertada con éxito en la base de datos.")
-            print()
-            consultar_info()
-
+            print("Error, información a almacenar incorrecta.")
     except errors.DuplicateKeyError as e:
         print(f"Error al insertar la información en la base de datos: {_id} ya existe.")
     

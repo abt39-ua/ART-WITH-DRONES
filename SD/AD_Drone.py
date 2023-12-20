@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import requests
 from pymongo import MongoClient, server_api, errors
 from flask import Flask, jsonify, request
+import hashlib
 
 ID = 0
 alias = ""
@@ -135,18 +136,31 @@ def solicitar_nuevo_token_al_servidor():
         if 'client' in locals():
             client.close()
         
+# Crear un objeto hash para el algoritmo específico (por ejemplo, SHA-256)
+hash_object = hashlib.sha256()
+
 def registry_sockets():
-    global ID, token
+    global ID, token, hash_object
     alias=input("Introduce tu alias: ")
     ADDR = (ad_registry_ip, ad_registry_port)  
+     # Solicitar al usuario una contraseña para el dron
+    password = input("Introduce tu contraseña: ")
 
+    hash_object.update(password.encode('utf-8'))
+
+    # Obtener el valor hash como una cadena hexadecimal
+    hashed_password = hash_object.hexdigest()
+    data_to_send = {
+        'nombre': alias,
+        'contraseña': hashed_password
+    }
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(ADDR)
         print (f"Establecida conexión en [{ADDR}]")
 
         print("Realizando solicitud al servidor")
-        send(alias, client)
+        send(json.dumps(data_to_send), client)
         mensaje = client.recv(2048).decode(FORMAT)
         data = json.loads(mensaje)
         if 'token' in data and 'id' in data:
@@ -157,6 +171,7 @@ def registry_sockets():
             print(f"Mensaje del servidor: {data.get('mensaje', '')}")
         else:
             print("No se recibió un token en la respuesta.")
+            hash_object = hashlib.sha256()
 
     except (ConnectionRefusedError, TimeoutError):
         print("No ha sido posible establecer conexión con el servidor de registro, inténtelo de nuevo.")
@@ -169,7 +184,7 @@ def registry_sockets():
             client.close()
 
 def registry_API():
-    global collection, ID
+    global collection, ID, hash_object
     try:
         # URL de la API del Registry para agregar un nuevo registro de dron
         api_url = 'http://localhost:5002/registros'  # Ajusta la URL según la configuración de tu servidor
@@ -183,26 +198,40 @@ def registry_API():
 
         # Solicitar al usuario un alias para el dron
         alias = input("Introduce tu alias: ")
-        
+        # Solicitar al usuario una contraseña para el dron
+        password = input("Introduce tu contraseña: ")
+
+        hash_object.update(password.encode('utf-8'))
+
+        # Obtener el valor hash como una cadena hexadecimal
+        hashed_password = hash_object.hexdigest()
         # Datos del nuevo registro de dron (puedes ajustar esto según tus necesidades)
         nuevo_registro = {
             '_id': ID,
             'nombre': alias,
             'posicion_x': 0,
             'posicion_y': 0,
-            'estado': False
+            'estado': False,
+            'contraseña': hashed_password
         }
         # Realizar la solicitud POST al API del Registry
         response = requests.post(api_url, json=nuevo_registro)
-
+        hash_object = hashlib.sha256()
         # Verificar el código de estado de la respuesta
         if response.status_code == 201:
-            print("Registro agregado correctamente.")
+            print(f"Registro agregado correctamente con el ID: {ID}")
             solicitar_nuevo_token_al_servidor()
         else:
-            print(f"Error al agregar el registro. Código de estado: {response.status_code}")
-            print(response.text)  # Imprimir el contenido de la respuesta en caso de error
-
+            if(response.status_code == 200):
+                data = json.loads(response.text)
+                if 'id' in data:
+                    ID = data['id']
+                    print(f"Dron ya resgistrado con el ID: {ID}")
+            else:
+                print(f"Error al agregar el registro. Código de estado: {response.status_code}")
+        if token == "":
+            ID = 0
+            print("Contraseña incorrecta.")
     except Exception as e:
         print(f"Error al realizar la solicitud POST al API del Registry: {str(e)}")
 
