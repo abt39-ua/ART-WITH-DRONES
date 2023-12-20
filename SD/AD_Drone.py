@@ -10,8 +10,11 @@ import signal
 import jwt
 import time
 from datetime import datetime, timedelta
+import requests
+from pymongo import MongoClient, server_api, errors
+from flask import Flask, jsonify, request
 
-ID=0
+ID = 0
 alias = ""
 
 HEADER = 64
@@ -34,6 +37,25 @@ token = ""
 secret_key = '123'
 
 semaforo = threading.Semaphore(value=1)
+
+# Conexión a MongoDB con una versión específica de la API del servidor
+uri = "mongodb://localhost:27018"
+api_version = server_api.ServerApi('1', strict=True, deprecation_errors=True)
+client = MongoClient(uri, server_api=api_version)
+dbName = 'SD'
+colletionName = 'drones'  
+
+# Conexión a MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+# Conectar al servidor de MongoDB
+client.admin.command('ismaster')
+
+# Obtener la base de datos
+db = client['SD']
+
+# Obtener la colección
+collection = db['drones']
+
 
 def handle_interrupt(signum, frame):
     global ID
@@ -92,9 +114,8 @@ def solicitar_nuevo_token_al_servidor():
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(ADDR)
-        print (f"Establecida conexión en [{ADDR}]")
 
-        print("Realizando solicitud al servidor")
+        print("Realizando solicitud de token al servidor")
         send(ID, client)
         mensaje = client.recv(2048).decode(FORMAT)
         data = json.loads(mensaje)
@@ -118,7 +139,6 @@ def registry_sockets():
     global ID, token
     alias=input("Introduce tu alias: ")
     ADDR = (ad_registry_ip, ad_registry_port)  
-    
 
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -147,6 +167,45 @@ def registry_sockets():
     finally:
         if 'client' in locals():
             client.close()
+
+def registry_API():
+    global collection, ID
+    try:
+        # URL de la API del Registry para agregar un nuevo registro de dron
+        api_url = 'http://localhost:5002/registros'  # Ajusta la URL según la configuración de tu servidor
+        # Obtener el último documento insertado
+        last_document = collection.find_one({}, sort=[("_id", -1)])
+        if last_document:
+            last_id = last_document["_id"]
+            ID = last_id + 1
+        else:
+            ID += 1
+
+        # Solicitar al usuario un alias para el dron
+        alias = input("Introduce tu alias: ")
+        
+        # Datos del nuevo registro de dron (puedes ajustar esto según tus necesidades)
+        nuevo_registro = {
+            '_id': ID,
+            'nombre': alias,
+            'posicion_x': 0,
+            'posicion_y': 0,
+            'estado': False
+        }
+        # Realizar la solicitud POST al API del Registry
+        response = requests.post(api_url, json=nuevo_registro)
+
+        # Verificar el código de estado de la respuesta
+        if response.status_code == 201:
+            print("Registro agregado correctamente.")
+            solicitar_nuevo_token_al_servidor()
+        else:
+            print(f"Error al agregar el registro. Código de estado: {response.status_code}")
+            print(response.text)  # Imprimir el contenido de la respuesta en caso de error
+
+    except Exception as e:
+        print(f"Error al realizar la solicitud POST al API del Registry: {str(e)}")
+
     
 # Códigos de escape ANSI para colores de fondo
 FONDO_ROJO = "\033[41m"
@@ -155,7 +214,6 @@ FONDO_CREMA = "\033[48;5;224m"
 RESET = "\033[0m"
 TEXTO_NEGRO = "\033[30m"
 LETRA_GROSOR_NEGRITA = "\033[1m"
-
 
 cuadrado = "□"
 
@@ -437,8 +495,8 @@ def main(argv = sys.argv):
             print("Opción:", end=" ")
             orden = input()
             
-            while orden != "1" and orden != "2" and orden != "3":
-                print("Error, indica una de las 3 posibilidades por favor(1, 2 o 3).")
+            while orden != "1" and orden != "2" and orden != "3" and orden != "4":
+                print("Error, indica una de las 4 posibilidades por favor(1, 2, 3 o 4).")
                 print("Opción:", end=" ")
                 orden = input()
                 print()
