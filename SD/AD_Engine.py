@@ -156,7 +156,7 @@ def procesar_registrados():
             break
         else:
             print("Esperando a que todos los drones se registren...")
-            time.sleep(1)
+            time.sleep(3)
 
 def getFiguras():
     global figuras
@@ -195,8 +195,7 @@ def getFigura():
             figura[ID] = {"posicion": (x, y), "estado": estado}
         # Eliminar la figura procesada del diccionario de figuras
         del figuras[nombre_figura]
-        print("Figura procesada y guardada en figura:")
-        #print(figura)
+        print("Figura procesada.")
         return nombre_figura
     else:
         return ""
@@ -352,7 +351,7 @@ class Consumer(threading.Thread):
             collection.update_one(filter_query, update_query)
            
             mapa[id] = ((x, y), estado)
-            print(mapa)
+            #print(mapa)
             if len(mapa) == registrados == len(figura):
                 time.sleep(1)
                 #imprimir_mapa_actualizado(mapa, figura)
@@ -377,10 +376,10 @@ class Consumer(threading.Thread):
                         position_data = pickle.loads(message.value)
                         if isinstance(position_data, tuple) and len(position_data) == 3:
                             self.actualizar_mapa(position_data)
-                            print(position_data)
-                            print(len(mapa))
-                            print(registrados)
-                            print(len(figura))
+                            #print(position_data)
+                            #print(len(mapa))
+                            #print(registrados)
+                            #print(len(figura))
                         else:
                             print("Datos inválidos recibidos del dron.")
                     except Exception as e:
@@ -417,8 +416,6 @@ class Producer(threading.Thread):
 
     def verificar_completitud(self, mapa, coordenadas_figura):
         global completada, figura_ajustada
-        print(mapa)
-        print(coordenadas_figura)
         estado_defecto = True
         
         for drone_id, drone_info in coordenadas_figura.items():
@@ -428,11 +425,7 @@ class Producer(threading.Thread):
             # Crear la entrada correspondiente en volver_base_ajustado
             figura_ajustada[drone_id] = (nueva_posicion,nuevo_estado)
 
-        print(completada)
-        print("Imprimiendo mapa:")
-        print(mapa)
-        print("Imprimiendo figura_ajustada")
-        print(figura_ajustada)
+        
         if all(key in mapa and mapa[key] == value for key, value in figura_ajustada.items()):
             if (figura_ajustada != volver_base_ajustado): 
                 return True
@@ -447,12 +440,8 @@ class Producer(threading.Thread):
         # Inicia un hilo para consultar el clima cada t_consulta segundos
         thread_consulta = threading.Thread(target=consultar_clima)
         thread_consulta.start()
-        print(t_consulta)
         getFiguras()
         nombre_figura = getFigura()
-        print(figura)
-        print(figuras)
-        print(auditoria)
         if figura != {}:
             try:
                 if(auditoria == '0'):
@@ -476,7 +465,6 @@ class Producer(threading.Thread):
             volver_base[drone_id] = {'posicion': nueva_posicion, 'estado': nuevo_estado}
         
         for drone_id, drone_info in volver_base.items():
-                print(drone_info)
                 nueva_posicion = (drone_info['posicion'][0] - 1, drone_info['posicion'][1] - 1)
                 nuevo_estado = False
                 
@@ -520,9 +508,7 @@ class Producer(threading.Thread):
                     if(nombre_figura != ""):
                         with open("auditoria.txt", "a") as file:
                             file.write("\n*¡PREPARANDO EL SIGUIENTE EVENTO!*\n")
-                        print("Procesando siguiente figura...")
-                        print("Mostrando figura:")
-                        print()
+                        print("Procesando siguiente figura...\n")
                         contador = aux
                     else: 
                         print("No hay más figuras para procesar:")
@@ -538,7 +524,6 @@ class Producer(threading.Thread):
 ########## MAIN ##########
 
 def main(argv = sys.argv):
-    print(len(sys.argv))
     if len(sys.argv) != 7:
         print("Error: El formato debe ser el siguiente: [Puerto_Engine] [N_Máximo_Drones] [IP_Broker] [Puerto_Broker] [IP_Weather] [Puerto_Weather] [Tiempo_Consulta] [Auditoria]")
         sys.exit(1)
@@ -550,9 +535,8 @@ def main(argv = sys.argv):
         broker_port = int(argv[3])
         t_consulta = argv[4]
         auditoria = argv[5]
-        print(auditoria)
         tam = len(argv)
-        print(tam)
+        
 
         # Borrar el contenido del archivo de auditoría
         try:
@@ -591,3 +575,4 @@ if __name__ == "__main__":
     flask_thread = threading.Thread(target=app.run, kwargs={'port': 5001})
     flask_thread.start()
     # python3 AD_Engine.py 5050 20 127.0.0.1 9092 5 0
+

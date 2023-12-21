@@ -101,8 +101,7 @@ def verificar_tiempo_de_expiracion(token):
 
             # Definir un timedelta de 20 segundos
             delta_20_seconds = timedelta(seconds=20)
-            print(tiempo_expiracion)
-            print(tiempo_actual)
+            
             # Verificar si ha expirado
             if tiempo_actual - tiempo_expiracion > delta_20_seconds:
                 return True  # Token ha expirado
@@ -238,10 +237,10 @@ def registry_API():
                 print(f"Registro agregado correctamente con el ID: {ID}")
             solicitar_nuevo_token_al_servidor()
         else:
-            print(f"Error al agregar el registro. Código de estado: {response.status_code}")
+            print(f"Error al agregar el registro.")
         if token == "":
             ID = 0
-            print("Contraseña incorrecta.")
+            print("Contraseña incorrecta.\n")
     except Exception as e:
         print(f"Error al realizar la solicitud POST al API del Registry: {str(e)}")
 
@@ -526,13 +525,14 @@ def main(argv = sys.argv):
         orden = ""
         while(orden != "4"):
             
-            print("¿Qué deseas hacer?")
+            print("\n¿Qué deseas hacer?")
             print("1. Registrarse con Sockets")
             print("2. Registrarse con API")
             print("3. Empezar representación")
             print("4. Apagarse")
             print("Opción:", end=" ")
             orden = input()
+            print()
             
             while orden != "1" and orden != "2" and orden != "3" and orden != "4":
                 print("Error, indica una de las 4 posibilidades por favor(1, 2, 3 o 4).")
@@ -550,7 +550,6 @@ def main(argv = sys.argv):
             if orden == "2":
                 if(ID != 0):
                     print("Ya estás registrado!")
-                    print()
                 else:
                     registry_API()
 
@@ -570,10 +569,12 @@ def main(argv = sys.argv):
                 else:
                     print("El token ha expirado. Solicitando nuevo token...")
                     solicitar_nuevo_token_al_servidor()
-                    print(token)
+                    #print(token)
 
             if orden == "4":
                 sys.exit()
 
 if __name__ == "__main__":
   main(sys.argv[1:])
+
+ # python3 AD_Drone.py 127.0.0.1 5050 127.0.0.1 29092 127.0.0.1 5051

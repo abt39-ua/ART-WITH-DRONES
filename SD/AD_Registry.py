@@ -56,6 +56,7 @@ def conectar_db():
         return None
 
 def buscar_alias(alias):
+    alias = alias.strip()
     try:
         collection = conectar_db()
         # Buscar si el alias ya existe en la base de datos
@@ -121,11 +122,7 @@ def handle_client_socket(conn, addr):
                         alias = data["nombre"]
                         hashed_password_from_client = data["contraseña"]
                           
-                        n = buscar_alias(alias)
-                        
-                        print(f"He recibido del cliente [{addr}] el mensaje: {msg}")
-                        print()
-                        print(n)
+                        n = buscar_alias(alias)               
                         if n == "0":
                             # Obtener el último documento insertado
                             last_document = collection.find_one({}, sort=[("_id", -1)])
@@ -212,33 +209,34 @@ def agregar_registro():
         if "nombre" in nuevo_registro and "contraseña" in nuevo_registro:
             alias = nuevo_registro["nombre"]
             hashed_password_from_client = nuevo_registro["contraseña"]
-            print(alias)
-            print(hashed_password_from_client)
+            hashed_password_from_client = hashed_password_from_client.strip()
             n = buscar_alias(alias)
-            
-            if n == "0":
-                # Insertar el nuevo registro en la base de datos
-                result = collection.insert_one(nuevo_registro)
-                token = generate_jwt_token(ID)
-                if result.inserted_id:
-                    return jsonify({"mensaje": f"Registro agregado correctamente con ID: {result.inserted_id}"}), 201
-            else:
+            if n != "0":
                 correcta = comprobar_contraseñas(alias, hashed_password_from_client)
-                print(correcta)
+                
                 if correcta:
                     with open("auditoria.txt", "a") as file:
                         file.write(f"El dron con el alias: {alias} e ID: {n}, se ha levantado correctamente.\n")
-                    print(n)
                     # Contraseña válida, enviamos el nuevo token y el ID junto con la respuesta al dron
                     nuevo_token = generate_jwt_token(n)
                     response_data = {'token': nuevo_token, 'id': n, 'mensaje': f'Este nombre ya está registrado con el ID: {n}'}
+                    return jsonify(response_data), 201
                 else:
                     with open("auditoria.txt", "a") as file:
                         file.write(f"Un dron ha intentado autenticarse con el alias: {alias}, con una contraseña incorrecta.\n")
                     # Contraseña incorrecta, enviamos un mensaje de error al dron
                     response_data = {'mensaje': 'Contraseña incorrecta'}
+                    return jsonify(response_data), 202
+                
+            else:
+                # Insertar el nuevo registro en la base de datos
+                result = collection.insert_one(nuevo_registro)
+                token = generate_jwt_token(ID)
+                if result.inserted_id:
+                    print("\nInformación insertada con éxito en la base de datos.\n")
 
-                return jsonify(response_data), 201
+                    return jsonify({"mensaje": f"Registro agregado correctamente con ID: {result.inserted_id}"}), 201
+        
         else:
             return jsonify({"mensaje": "Error, información a almacenar incorrecta."}), 400
 
@@ -289,22 +287,16 @@ def run_api_server():
 
 def comprobar_contraseñas(alias, hashed_password_from_client):
     global collection
-    print("Comprobando contraseñas:")
+    print("\n~Comprobando contraseñas~\n")
     # Dron ya registrado, verificamos la contraseña
     stored_document = collection.find_one({"nombre": alias})
-    print("Imprimiendo info:")
-    print(stored_document)
-    print()
     stored_password = stored_document.get("contraseña", "")
-    print("Contraseña de la BD:")
-    print(stored_password)
-    print("Contraseña del cliente:")
-    print(hashed_password_from_client)
-    print()
     try:
         if (stored_password == hashed_password_from_client):
+            print("\n~Contraseña correcta~\n")
             return True
         else:
+            print("\n~Contraseña incorrecta~\n")
             return False
     except Exception as e:
         print(f"Error al verificar la contraseña: {e}")
@@ -323,8 +315,6 @@ def handle_socket_connections():
             if (CONEX_ACTIVAS <= MAX_CONEXIONES): 
                 thread = threading.Thread(target=handle_client_socket, args=(conn, addr))
                 thread.start()
-                print(f"[CONEXIONES ACTIVAS] {CONEX_ACTIVAS}")
-                print("CONEXIONES RESTANTES PARA CERRAR EL SERVICIO:", MAX_CONEXIONES-CONEX_ACTIVAS)
             else:
                 conn.close()
                 CONEX_ACTUALES = threading.active_count()-1
@@ -334,7 +324,6 @@ def handle_socket_connections():
 def save_info(ID, msg):
     try:
         collection = conectar_db()
-        print("Conexión exitosa a la base de datos")
         data = json.loads(msg)
         if "nombre" in data and "contraseña" in data:
             alias = data["nombre"]
@@ -345,8 +334,7 @@ def save_info(ID, msg):
             else:
                 # Se realiza la inserción en la colección "drones" con el ID especificado
                 collection.insert_one({"_id": ID, "nombre": alias,"contraseña": hashed_password_from_client, "posicion_x": 0, "posicion_y": 0, "estado":False})
-                print("Información insertada con éxito en la base de datos.")
-                print()
+                print("\nInformación insertada con éxito en la base de datos.\n")
                 consultar_info()
         else:
             print("Error, información a almacenar incorrecta.")
@@ -359,14 +347,13 @@ def save_info(ID, msg):
 def consultar_info():
     try:
         collection = conectar_db()
-        print("Conexión exitosa a la base de datos")
 
         # Consultar todos los documentos en la colección "drones"
         cursor = collection.find()
 
         # Imprimir los documentos
-        for document in cursor:
-            print(document)
+        #for document in cursor:
+        #    print(document)
 
     except Exception as e:
         print(f"Error al consultar la información en la base de datos: {str(e)}")
@@ -375,7 +362,6 @@ def consultar_info():
 def borrar_registros_db():
     try:
         collection = conectar_db()
-        print("Conexión exitosa a la base de datos")
 
         # Elimina todos los registros de la colección "drones"
         result = collection.delete_many({})
@@ -403,7 +389,6 @@ def main(argv = sys.argv):
         opcion_borrar = int(sys.argv[3])
         if opcion_borrar == 0:
             borrar_registros_db()
-            print("Registros en la base de datos eliminados.")
         elif opcion_borrar == 1:
             collection = conectar_db()
             last_document = collection.find_one({}, sort=[("_id", -1)])  # Obtener el último documento insertado
@@ -433,3 +418,5 @@ if __name__ == "__main__":
     # Esperar a que ambos hilos finalicen (si es necesario)
     socket_thread.join()
     api_thread.join()
+
+    # python3 AD_Registry.py 5051 127.0.0.1 0
