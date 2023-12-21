@@ -11,6 +11,7 @@ import random
 import re
 import json
 import requests
+import datetime
 from pymongo import MongoClient, server_api
 from flask import Flask, jsonify
 
@@ -190,10 +191,9 @@ def getFigura():
         del figuras[nombre_figura]
         print("Figura procesada y guardada en figura:")
         #print(figura)
-        return 0
+        return nombre_figura
     else:
-        return 1
-        print("No hay más figuras para procesar.")
+        return ""
 
 ##############   MAPA    #######################
 
@@ -453,9 +453,18 @@ class Producer(threading.Thread):
         thread_consulta.start()
         print(t_consulta)
         getFiguras()
-        getFigura()
+        nombre_figura = getFigura()
         print(figura)
         print(figuras)
+        if figura != {}:
+            try:
+                with open("auditoria.txt", "w") as file:
+                    pass
+            except Exception as e:
+                print(f"Error al borrar el contenido del archivo de auditoría y escribir el mensaje: {e}")
+
+        contador = 0
+        aux = contador
         for drone_id, drone_info in figura.items():
             # Establecer las posiciones y estados por defecto
             nueva_posicion = (1, 1)
@@ -477,10 +486,18 @@ class Producer(threading.Thread):
             procesar_registrados()
         while not self.stop_event.is_set():
             while(mapa != figura):
+                
                 if len(mapa) == len(figura) and registrados >= len(figura):
                     producer_coor = KafkaProducer(bootstrap_servers=self.broker_address)
                     producer_mapa = KafkaProducer(bootstrap_servers=self.broker_address)
                     if(actuacion == True):
+                        if aux == contador:
+                            aux += 1
+                            inicio_evento = datetime.datetime.now()
+                            with open("auditoria.txt", "a") as file:
+                                file.write(f"La figura que se va a representar es: {nombre_figura}\n")
+                                file.write(f"Inicio del evento: {inicio_evento}\n")
+                                
                         self.enviar_coordenadas_figura(figura, producer_coor, producer_mapa)
 
                     else:
@@ -490,11 +507,12 @@ class Producer(threading.Thread):
                     pass
                 if actuacion == True and completada == True and mapa != volver_base_ajustado:
                     time.sleep(5)
-                    n = getFigura()
-                    if(n == 0):
+                    nombre_figura = getFigura()
+                    if(nombre_figura != ""):
                         print("Procesando siguiente figura...")
                         print("Mostrando figura:")
                         print()
+                        contador = aux
                     else: 
                         print("No hay más figuras para procesar:")
                         while(True):
@@ -521,6 +539,14 @@ def main(argv = sys.argv):
 
         tam = len(argv)
         print(tam)
+        # Borrar el contenido del archivo de auditoría
+        try:
+            with open("auditoria.txt", "w") as file:
+                file.write("¡NO SE REGISTRARON EVENTOS!\n")
+            print("Contenido del archivo de auditoría borrado.")
+        except Exception as e:
+            print(f"Error al borrar el contenido del archivo de auditoría: {e}")
+
 
         try:
 

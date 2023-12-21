@@ -56,10 +56,15 @@ db = client['SD']
 
 # Obtener la colección
 collection = db['drones']
-
-
+aux = 0
+contador = 0
 def handle_interrupt(signum, frame):
-    global ID
+    global aux, contador
+    if ((ca_x != 0 or ca_y != 0) and ID != 0):
+        if(aux == contador):
+            aux += 1
+            with open("auditoria.txt", "a") as file:
+                file.write(f"- ¡El dron con ID: {ID} se ha caído!\n")
     print(f"Cerrando conexión...")
     sys.exit(0)
 
