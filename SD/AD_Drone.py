@@ -64,7 +64,11 @@ def handle_interrupt(signum, frame):
         if(aux == contador):
             aux += 1
             with open("auditoria.txt", "a") as file:
-                file.write(f"- ¡El dron con ID: {ID} se ha caído!\n")
+                file.write(f"- ¡El dron con ID: {ID} se ha caído durante la actuación.!\n")
+    else:
+        if(ID != 0):
+            with open("auditoria.txt", "a") as file:
+                file.write(f"- El dron con ID: {ID} se ha apagado.\n")
     print(f"Cerrando conexión...")
     sys.exit(0)
 
@@ -189,7 +193,7 @@ def registry_sockets():
             client.close()
 
 def registry_API():
-    global collection, ID, hash_object
+    global collection, ID, hash_object, token
     try:
         # URL de la API del Registry para agregar un nuevo registro de dron
         api_url = 'http://localhost:5002/registros'  # Ajusta la URL según la configuración de tu servidor
@@ -224,16 +228,15 @@ def registry_API():
         hash_object = hashlib.sha256()
         # Verificar el código de estado de la respuesta
         if response.status_code == 201:
-            print(f"Registro agregado correctamente con el ID: {ID}")
+            data = json.loads(response.text)
+            if 'id' in data:
+                ID = data['id']
+                print(f"Dron ya resgistrado con el ID: {ID}")
+            else:
+                print(f"Registro agregado correctamente con el ID: {ID}")
             solicitar_nuevo_token_al_servidor()
         else:
-            if(response.status_code == 200):
-                data = json.loads(response.text)
-                if 'id' in data:
-                    ID = data['id']
-                    print(f"Dron ya resgistrado con el ID: {ID}")
-            else:
-                print(f"Error al agregar el registro. Código de estado: {response.status_code}")
+            print(f"Error al agregar el registro. Código de estado: {response.status_code}")
         if token == "":
             ID = 0
             print("Contraseña incorrecta.")

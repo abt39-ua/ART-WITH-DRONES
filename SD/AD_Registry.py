@@ -135,10 +135,16 @@ def handle_client_socket(conn, addr):
                             token = generate_jwt_token(ID)
                             # Enviar el token y el ID junto con la respuesta al dron
                             response_data = {'token': token, 'id': ID, 'mensaje': 'Autenticación exitosa'}
+                            with open("auditoria.txt", "a") as file:
+                                file.write(f"Un dron se ha registrado con el alias: {alias} y se le ha asignado el ID: {ID}.\n")
+                            #token_str = token.decode('UTF-8')
+                            # Enviar el token y el ID junto con la respuesta al dron
+                            #response_data = {'token': token_str, 'id': ID, 'mensaje': 'Autenticación exitosa'}
                             response = json.dumps(response_data)
                             conn.send(response.encode(FORMAT))
                             save_info(ID, msg)
                             ID += 1
+                            
                             
                         else:
                             correcta = comprobar_contraseñas(alias, hashed_password_from_client)
@@ -146,10 +152,14 @@ def handle_client_socket(conn, addr):
                                 if(correcta):
                                     # Contraseña válida, enviamos el nuevo token y el ID junto con la respuesta al dron
                                     nuevo_token = generate_jwt_token(n)
-
+                                    with open("auditoria.txt", "a") as file:
+                                        ID = buscar_alias(alias)
+                                        file.write(f"El dron con el alias: {alias} e ID: {ID}, se ha levantado correctamente.\n")
                                     # Enviar el nuevo token y el ID junto con la respuesta al dron
                                     response_data = {'token': nuevo_token, 'id': n, 'mensaje': f'Este nombre ya está registrado con el ID: {n}'}
                                 else:
+                                    with open("auditoria.txt", "a") as file:
+                                        file.write(f"Un dron ha intentado autenticarse con el alias: {alias}, con una contraseña incorrecta.\n")
                                     # Contraseña incorrecta, enviamos un mensaje de error al dron
                                     response_data = {'mensaje': 'Contraseña incorrecta'}
                                 
@@ -214,15 +224,19 @@ def agregar_registro():
                 correcta = comprobar_contraseñas(alias, hashed_password_from_client)
                 print(correcta)
                 if correcta:
+                    with open("auditoria.txt", "a") as file:
+                        file.write(f"El dron con el alias: {alias} e ID: {n}, se ha levantado correctamente.\n")
+                    print(n)
                     # Contraseña válida, enviamos el nuevo token y el ID junto con la respuesta al dron
                     nuevo_token = generate_jwt_token(n)
                     response_data = {'token': nuevo_token, 'id': n, 'mensaje': f'Este nombre ya está registrado con el ID: {n}'}
                 else:
+                    with open("auditoria.txt", "a") as file:
+                        file.write(f"Un dron ha intentado autenticarse con el alias: {alias}, con una contraseña incorrecta.\n")
                     # Contraseña incorrecta, enviamos un mensaje de error al dron
                     response_data = {'mensaje': 'Contraseña incorrecta'}
 
-                return jsonify(response_data), 200
-
+                return jsonify(response_data), 201
         else:
             return jsonify({"mensaje": "Error, información a almacenar incorrecta."}), 400
 

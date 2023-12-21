@@ -21,6 +21,7 @@ mapa = {}
 HEADER = 64
 FORMAT = 'utf-8'
 ad_engine_port = 0
+ad_engine_ip = ""
 MAX_Drones = 0
 broker_ip = ""
 broker_port = 0
@@ -42,6 +43,7 @@ output_lock = threading.Lock()
 ciudad = ""
 volver_base = {}
 figura_ajustada = {}
+auditoria = -1
 
 # Conexión a MongoDB con una versión específica de la API del servidor
 uri = "mongodb://localhost:27018"
@@ -80,6 +82,8 @@ def signal_handler(sig, frame):
         consumer_thread.stop()
     if producer_thread:
         producer_thread.stop()
+    with open("auditoria.txt", "a") as file:
+        file.write("\n*El servidor núcleo se ha apagado.*\n")
     sys.exit(0)  # Sale del programa
 
 # Asigna el manejador de señales
@@ -196,7 +200,7 @@ def getFigura():
         return ""
 
 ##############   MAPA    #######################
-
+"""
 # Códigos de escape ANSI para colores de fondo
 FONDO_ROJO = "\033[41m"
 FONDO_VERDE = "\033[102m"
@@ -208,7 +212,7 @@ LETRA_GROSOR_NEGRITA = "\033[1m"
 
 cuadrado = "□"
 
-"""
+
 def imprimir_mapa_actualizado(mapa, figura):
     global completada
     n = 0
@@ -336,10 +340,8 @@ class Consumer(threading.Thread):
             id, (x, y), estado = position_data
         except (TypeError, ValueError):
             print("Datos de posición inválidos recibidos del dron.")
-            return # Adquirir el bloqueo antes de realizar actualizaciones en el mapa
-        
-        # Adquirir el Lock antes de modificar drones_positions
-       # drones_positions_lock.acquire()
+            return 
+       
 
         try:
             # Actualizar la posición del dron en la base de datos
@@ -349,8 +351,7 @@ class Consumer(threading.Thread):
            
             mapa[id] = ((x, y), estado)
             print(mapa)
-            #print(figura)
-            if len(mapa) == registrados == len(figura):# and all(id_dron in mapa for id_dron in figura.keys()):
+            if len(mapa) == registrados == len(figura):
                 time.sleep(1)
                 #imprimir_mapa_actualizado(mapa, figura)
                 
@@ -359,10 +360,6 @@ class Consumer(threading.Thread):
     
         finally:
             pass
-
-        # Liberar el Lock sin importar si ocurre una excepción
-        # drones_positions_lock.release()
-
 
     def run(self):
         try:
@@ -405,8 +402,6 @@ class Producer(threading.Thread):
         self.stop_event.set()
 
     def enviar_coordenadas_figura(self, drones_positions, producer_coor, producer_mapa):
-        #print(drones_positions)
-        
         global completada
         # Enviar coordenadas de la figura actual
         producer_coor.send('topic_coord', pickle.dumps(drones_positions))
@@ -424,7 +419,6 @@ class Producer(threading.Thread):
         print(coordenadas_figura)
         estado_defecto = True
         
-        
         for drone_id, drone_info in coordenadas_figura.items():
             nueva_posicion = (drone_info['posicion'][0] - 1, drone_info['posicion'][1] - 1)
             nuevo_estado = True
@@ -432,7 +426,6 @@ class Producer(threading.Thread):
             # Crear la entrada correspondiente en volver_base_ajustado
             figura_ajustada[drone_id] = (nueva_posicion,nuevo_estado)
 
-        #print(figura_ajustada)
         print(completada)
         print("Imprimiendo mapa:")
         print(mapa)
@@ -446,8 +439,9 @@ class Producer(threading.Thread):
         else:
            return False
 
+
     def run(self):
-        global completada
+        global completada, auditoria
         # Inicia un hilo para consultar el clima cada t_consulta segundos
         thread_consulta = threading.Thread(target=consultar_clima)
         thread_consulta.start()
@@ -456,10 +450,16 @@ class Producer(threading.Thread):
         nombre_figura = getFigura()
         print(figura)
         print(figuras)
+        print(auditoria)
         if figura != {}:
             try:
-                with open("auditoria.txt", "w") as file:
-                    pass
+                if(auditoria == '0'):
+                    with open("auditoria.txt", "w") as file:
+                        file.write("\n*Nuevo servidor núcleo operativo.*\n")
+                        pass
+                    with open("auditoria.txt", "a") as file: 
+                        # Obtener la dirección IP de tu máquina
+                        file.write(f"Los drones se producirán en la IP: {broker_ip}\n")
             except Exception as e:
                 print(f"Error al borrar el contenido del archivo de auditoría y escribir el mensaje: {e}")
 
@@ -494,9 +494,11 @@ class Producer(threading.Thread):
                         if aux == contador:
                             aux += 1
                             inicio_evento = datetime.datetime.now()
+                            inicio_evento_str = inicio_evento.strftime("%Y-%m-%d %H:%M:%S")
+
                             with open("auditoria.txt", "a") as file:
                                 file.write(f"La figura que se va a representar es: {nombre_figura}\n")
-                                file.write(f"Inicio del evento: {inicio_evento}\n")
+                                file.write(f"Inicio del evento: {inicio_evento_str}\n")
                                 
                         self.enviar_coordenadas_figura(figura, producer_coor, producer_mapa)
 
@@ -507,14 +509,23 @@ class Producer(threading.Thread):
                     pass
                 if actuacion == True and completada == True and mapa != volver_base_ajustado:
                     time.sleep(5)
+                    with open("auditoria.txt", "a") as file:
+                        fin_evento = datetime.datetime.now()
+                        fin_evento_str = fin_evento.strftime("%Y-%m-%d %H:%M:%S")
+                        file.write(f"EVENTO FINALIZADO - FECHA: {fin_evento_str}\n")
+                        
                     nombre_figura = getFigura()
                     if(nombre_figura != ""):
+                        with open("auditoria.txt", "a") as file:
+                            file.write("\n*¡PREPARANDO EL SIGUIENTE EVENTO!*\n")
                         print("Procesando siguiente figura...")
                         print("Mostrando figura:")
                         print()
                         contador = aux
                     else: 
                         print("No hay más figuras para procesar:")
+                        with open("auditoria.txt", "a") as file:
+                            file.write("\n*¡ESPECTÁCULO FINALIZADO!*\n")
                         while(True):
                             self.enviar_coordenadas_figura(volver_base,producer_coor, producer_mapa)
                 
@@ -526,24 +537,27 @@ class Producer(threading.Thread):
 
 def main(argv = sys.argv):
     print(len(sys.argv))
-    if len(sys.argv) != 6:
-        print("Error: El formato debe ser el siguiente: [Puerto_Engine] [N_Máximo_Drones] [IP_Broker] [Puerto_Broker] [IP_Weather] [Puerto_Weather] [Tiempo_Consulta]")
+    if len(sys.argv) != 7:
+        print("Error: El formato debe ser el siguiente: [Puerto_Engine] [N_Máximo_Drones] [IP_Broker] [Puerto_Broker] [IP_Weather] [Puerto_Weather] [Tiempo_Consulta] [Auditoria]")
         sys.exit(1)
     else:
-        global completada, ad_engine_port, MAX_Drones, broker_ip, broker_port, ad_weather_ip, ad_weather_port, t_consulta, mapa
+        global completada, ad_engine_port, MAX_Drones, broker_ip, broker_port, ad_weather_ip, ad_weather_port, t_consulta, mapa, auditoria
         ad_engine_port = int(argv[0])
         MAX_Drones = argv[1]
         broker_ip = argv[2]
         broker_port = int(argv[3])
         t_consulta = argv[4]
-
+        auditoria = argv[5]
+        print(auditoria)
         tam = len(argv)
         print(tam)
+
         # Borrar el contenido del archivo de auditoría
         try:
-            with open("auditoria.txt", "w") as file:
-                file.write("¡NO SE REGISTRARON EVENTOS!\n")
-            print("Contenido del archivo de auditoría borrado.")
+            if(auditoria == '0'):
+                with open("auditoria.txt", "w") as file:
+                    file.write("¡NO SE REGISTRARON EVENTOS!\n")
+                    print("Contenido del archivo de auditoría borrado.")
         except Exception as e:
             print(f"Error al borrar el contenido del archivo de auditoría: {e}")
 
@@ -566,16 +580,12 @@ def main(argv = sys.argv):
         except:
             pass
 
-# Crear un mapa de 20x20 inicializado con ceros (posición vacía)
-
 
 if __name__ == "__main__":
-    # Iniciar la aplicación Flask en un hilo separado
-    flask_thread = threading.Thread(target=app.run, kwargs={'port': 5001})
-    flask_thread.start()
-
     # Ejecutar la lógica principal en el hilo principal
     main(sys.argv[1:])
 
-
+# Iniciar la aplicación Flask en un hilo separado
+    flask_thread = threading.Thread(target=app.run, kwargs={'port': 5001})
+    flask_thread.start()
     #  python3 AD_Engine.py 5050 20 127.0.0.1 5050 5
