@@ -1,5 +1,5 @@
-# API_Engine.py
-
+#SAMUEL LORENZO
+#ALICIA BAQUERO
 from flask import Flask, jsonify, abort
 from flask_cors import CORS
 from pymongo import MongoClient, server_api

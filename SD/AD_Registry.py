@@ -1,3 +1,5 @@
+#SAMUEL LORENZO
+#ALICIA BAQUERO
 import socket 
 import threading
 import os

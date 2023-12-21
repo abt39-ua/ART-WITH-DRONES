@@ -1,3 +1,5 @@
+#SAMUEL LORENZO
+#ALICIA BAQUERO
 import socket
 import sys
 import threading
@@ -588,4 +590,4 @@ if __name__ == "__main__":
 # Iniciar la aplicación Flask en un hilo separado
     flask_thread = threading.Thread(target=app.run, kwargs={'port': 5001})
     flask_thread.start()
-    #  python3 AD_Engine.py 5050 20 127.0.0.1 5050 5
+    # python3 AD_Engine.py 5050 20 127.0.0.1 9092 5 0

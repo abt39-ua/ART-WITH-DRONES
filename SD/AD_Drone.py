@@ -1,3 +1,5 @@
+#SAMUEL LORENZO
+#ALICIA BAQUERO
 import json
 import socket
 import sys
